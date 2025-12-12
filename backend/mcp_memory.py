@@ -1,0 +1,485 @@
+"""
+Memory Anchor MCP Server - 供 Claude Code 使用的记忆接口
+
+基于 docs/MEMORY_STRATEGY.md 的 MCP 设计：
+- memory://search - 搜索患者记忆
+- memory://add - 添加记忆（仅fact层，需置信度）
+- memory://constitution - 获取宪法层
+
+使用方式：
+1. 在 Claude Code 的 MCP 配置中添加此服务器
+2. Claude Code 可通过 mcp__memory-anchor__* 工具访问记忆系统
+"""
+
+import asyncio
+import json
+from typing import Any, Sequence
+from uuid import UUID
+
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from mcp.types import (
+    Resource,
+    Tool,
+    TextContent,
+    CallToolResult,
+)
+
+from backend.models.note import MemoryLayer, NoteCategory
+from backend.models.constitution_change import (
+    ChangeType,
+    ConstitutionProposeRequest,
+)
+from backend.services.memory import (
+    MemoryService,
+    MemoryAddRequest,
+    MemorySearchRequest,
+    MemorySource,
+    get_memory_service,
+)
+from backend.services.constitution import get_constitution_service
+
+
+# 创建 MCP Server
+server = Server("memory-anchor")
+
+
+# === Tools ===
+
+
+@server.list_tools()
+async def list_tools() -> list[Tool]:
+    """列出可用工具"""
+    return [
+        Tool(
+            name="search_memory",
+            description="""搜索患者记忆。
+
+⚠️ **强制调用场景**：在回答任何与以下内容相关的问题之前，必须先调用此工具：
+
+**患者相关（照护场景）**：
+- 患者身份、家人、联系方式
+- 历史事件、去过的地方、见过的人
+- 用药、医疗、健康相关
+- 日常习惯、偏好、禁忌
+
+**项目开发相关（开发场景）**：
+- 项目历史、之前做过什么
+- 设计决策、架构选型的原因
+- Bug 修复记录、踩过的坑
+- 上下文、背景信息
+- "上次我们讨论的..."、"之前决定的..."
+
+**核心规则**：如果当前任务不是"完全新东西"，就必须先调用此工具。
+不确定时，宁可多查一次，也不要漏掉重要上下文。
+
+**输入**：用户问题的简短概述（自然语言）
+**输出**：若干条相关记忆（宪法/事实/会话层），供你引用回答问题
+
+三层记忆说明：
+- 🔴 宪法层：核心身份（始终返回，不可遗漏）
+- 🔵 事实层：长期记忆（经过验证的事实）
+- 🟢 会话层：短期对话记忆（24h内）
+
+示例查询：
+- "女儿电话" → 返回联系人信息
+- "search_memory Bug" → 返回相关 Bug 修复记录
+- "Qdrant 决策" → 返回技术选型原因
+- "上次讨论的架构" → 返回设计决策""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "搜索查询，支持自然语言",
+                    },
+                    "layer": {
+                        "type": "string",
+                        "enum": ["constitution", "fact", "session"],
+                        "description": "过滤记忆层级（可选）",
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": ["person", "place", "event", "item", "routine"],
+                        "description": "过滤分类（可选）",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "default": 5,
+                        "minimum": 1,
+                        "maximum": 20,
+                        "description": "返回数量限制",
+                    },
+                },
+                "required": ["query"],
+            },
+        ),
+        Tool(
+            name="add_memory",
+            description="""添加记忆到系统。
+
+注意：
+- 宪法层不允许通过此工具添加（需专用流程）
+- AI提取的记忆需提供置信度，会按规则处理：
+  - ≥0.9: 直接存入
+  - 0.7-0.9: 待确认
+  - <0.7: 拒绝
+
+示例：
+- 添加患者自述："患者说今天见了老朋友张三"
+- 记录观察："患者表现出对花园的喜爱" """,
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "description": "记忆内容",
+                        "minLength": 1,
+                        "maxLength": 2000,
+                    },
+                    "layer": {
+                        "type": "string",
+                        "enum": ["fact", "session"],
+                        "default": "fact",
+                        "description": "记忆层级（不允许constitution）",
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": ["person", "place", "event", "item", "routine"],
+                        "description": "分类（可选）",
+                    },
+                    "confidence": {
+                        "type": "number",
+                        "default": 0.8,
+                        "minimum": 0.0,
+                        "maximum": 1.0,
+                        "description": "置信度（AI提取时必填）",
+                    },
+                },
+                "required": ["content"],
+            },
+        ),
+        Tool(
+            name="get_constitution",
+            description="""获取患者的全部宪法层记忆。
+
+宪法层包含患者的核心身份信息：
+- 姓名、年龄、住址
+- 关键家庭成员和联系方式
+- 必要的医疗信息（用药、过敏）
+
+这些信息始终全量返回，不依赖检索。
+每次对话开始时应调用此工具加载上下文。""",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        Tool(
+            name="propose_constitution_change",
+            description="""提议修改宪法层记忆（需三次审批）。
+
+⚠️ **强制规则**：宪法层的任何修改，必须通过此工具提议，不得直接编辑。
+
+三次审批流程：
+1. 调用此工具 → 创建 pending 状态的变更提议
+2. 照护者审批 3 次 → approvals_count 达到 3
+3. 自动应用变更 → 写入宪法层
+
+**何时使用**：
+- 修改患者核心身份（姓名、住址）
+- 更新联系人信息
+- 修改医疗信息（用药、过敏）
+- 删除错误的宪法层条目
+
+**重要**：仅用于提议，不会立即生效。需要照护者多次确认。""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "change_type": {
+                        "type": "string",
+                        "enum": ["create", "update", "delete"],
+                        "default": "create",
+                        "description": "变更类型：create=新增, update=修改, delete=删除",
+                    },
+                    "proposed_content": {
+                        "type": "string",
+                        "description": "提议的内容（新增或修改后的内容）",
+                        "minLength": 1,
+                        "maxLength": 1000,
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "变更理由（必填，说明为什么要修改）",
+                        "minLength": 1,
+                        "maxLength": 500,
+                    },
+                    "target_id": {
+                        "type": "string",
+                        "description": "目标条目ID（update/delete时必填）",
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": ["person", "place", "event", "item", "routine"],
+                        "description": "分类（可选）",
+                    },
+                },
+                "required": ["proposed_content", "reason"],
+            },
+        ),
+    ]
+
+
+@server.call_tool()
+async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextContent]:
+    """执行工具调用"""
+    service = get_memory_service()
+
+    if name == "search_memory":
+        return await _handle_search_memory(service, arguments)
+    elif name == "add_memory":
+        return await _handle_add_memory(service, arguments)
+    elif name == "get_constitution":
+        return await _handle_get_constitution(service)
+    elif name == "propose_constitution_change":
+        return await _handle_propose_constitution_change(arguments)
+    else:
+        return [TextContent(type="text", text=f"未知工具: {name}")]
+
+
+async def _handle_search_memory(
+    service: MemoryService, arguments: dict
+) -> Sequence[TextContent]:
+    """处理搜索记忆请求"""
+    query = arguments.get("query", "")
+    layer = arguments.get("layer")
+    category = arguments.get("category")
+    limit = arguments.get("limit", 5)
+
+    request = MemorySearchRequest(
+        query=query,
+        layer=MemoryLayer(layer) if layer else None,
+        category=NoteCategory(category) if category else None,
+        include_constitution=True,
+        limit=limit,
+        min_score=0.3,
+    )
+
+    results = await service.search_memory(request)
+
+    # 格式化输出
+    output_lines = [f"🔍 搜索 \"{query}\" 返回 {len(results)} 条结果：\n"]
+
+    for i, r in enumerate(results, 1):
+        layer_icon = {"constitution": "🔴", "fact": "🔵", "session": "🟢"}.get(
+            r.layer.value, "⚪"
+        )
+        constitution_mark = " [核心]" if r.is_constitution else ""
+        output_lines.append(
+            f"{i}. {layer_icon} [{r.layer.value}]{constitution_mark} (相关度: {r.score:.2f})"
+        )
+        output_lines.append(f"   {r.content}\n")
+
+    return [TextContent(type="text", text="\n".join(output_lines))]
+
+
+async def _handle_add_memory(
+    service: MemoryService, arguments: dict
+) -> Sequence[TextContent]:
+    """处理添加记忆请求"""
+    content = arguments.get("content", "")
+    layer = arguments.get("layer", "fact")
+    category = arguments.get("category")
+    confidence = arguments.get("confidence", 0.8)
+
+    # 检查宪法层
+    if layer == "constitution":
+        return [
+            TextContent(
+                type="text",
+                text="❌ 错误：宪法层记忆不允许通过此工具添加。请使用照护者端专用流程。",
+            )
+        ]
+
+    try:
+        request = MemoryAddRequest(
+            content=content,
+            layer=MemoryLayer(layer),
+            category=NoteCategory(category) if category else None,
+            source=MemorySource.AI_EXTRACTION,  # MCP 调用视为 AI 提取
+            confidence=confidence,
+        )
+
+        result = await service.add_memory(request)
+
+        status_icon = {
+            "saved": "✅",
+            "pending_approval": "⏳",
+            "rejected_low_confidence": "❌",
+        }.get(result["status"], "❓")
+
+        output = f"{status_icon} 记忆添加结果：\n"
+        output += f"- 状态: {result['status']}\n"
+        output += f"- 层级: {result['layer']}\n"
+        output += f"- 置信度: {result['confidence']}\n"
+
+        if result.get("id"):
+            output += f"- ID: {result['id']}\n"
+
+        if result.get("requires_approval"):
+            output += "- ⚠️ 需要照护者审批确认\n"
+
+        if result.get("reason"):
+            output += f"- 原因: {result['reason']}\n"
+
+        return [TextContent(type="text", text=output)]
+
+    except ValueError as e:
+        return [TextContent(type="text", text=f"❌ 错误：{str(e)}")]
+
+
+async def _handle_get_constitution(service: MemoryService) -> Sequence[TextContent]:
+    """处理获取宪法层请求"""
+    results = await service.get_constitution()
+
+    if not results:
+        return [
+            TextContent(
+                type="text",
+                text="📋 宪法层为空。请让照护者先添加患者的核心身份信息。",
+            )
+        ]
+
+    output_lines = [f"🔴 宪法层记忆（共 {len(results)} 条核心信息）：\n"]
+
+    for i, r in enumerate(results, 1):
+        category_name = r.category.value if r.category else "未分类"
+        output_lines.append(f"{i}. [{category_name}] {r.content}\n")
+
+    return [TextContent(type="text", text="\n".join(output_lines))]
+
+
+async def _handle_propose_constitution_change(arguments: dict) -> Sequence[TextContent]:
+    """处理提议宪法层变更请求"""
+    from uuid import UUID
+
+    change_type_str = arguments.get("change_type", "create")
+    proposed_content = arguments.get("proposed_content", "")
+    reason = arguments.get("reason", "")
+    target_id_str = arguments.get("target_id")
+    category = arguments.get("category")
+
+    if not proposed_content:
+        return [TextContent(type="text", text="❌ 错误：proposed_content 是必填项")]
+
+    if not reason:
+        return [TextContent(type="text", text="❌ 错误：reason 是必填项，请说明变更理由")]
+
+    try:
+        change_type = ChangeType(change_type_str)
+    except ValueError:
+        return [TextContent(type="text", text=f"❌ 错误：无效的 change_type: {change_type_str}")]
+
+    # 验证 update/delete 必须有 target_id
+    if change_type in (ChangeType.UPDATE, ChangeType.DELETE) and not target_id_str:
+        return [
+            TextContent(
+                type="text",
+                text=f"❌ 错误：{change_type.value} 操作必须提供 target_id",
+            )
+        ]
+
+    try:
+        request = ConstitutionProposeRequest(
+            change_type=change_type,
+            proposed_content=proposed_content,
+            reason=reason,
+            target_id=UUID(target_id_str) if target_id_str else None,
+            category=category,
+        )
+
+        constitution_service = get_constitution_service()
+        result = await constitution_service.propose(request, proposer="claude-code")
+
+        output = f"✅ 宪法变更提议已创建\n\n"
+        output += f"📋 变更详情：\n"
+        output += f"- ID: {result.id}\n"
+        output += f"- 类型: {result.change_type.value}\n"
+        output += f"- 内容: {result.proposed_content}\n"
+        output += f"- 理由: {result.reason}\n"
+        output += f"- 状态: {result.status.value}\n"
+        output += f"- 审批进度: {result.approvals_count}/{result.approvals_needed}\n"
+        output += f"\n"
+        output += f"⏳ 下一步：需要照护者审批 3 次才能生效。\n"
+        output += f"   调用 POST /api/v1/constitution/approve/{result.id} 进行审批。"
+
+        return [TextContent(type="text", text=output)]
+
+    except ValueError as e:
+        return [TextContent(type="text", text=f"❌ 错误：{str(e)}")]
+
+
+# === Resources ===
+
+
+@server.list_resources()
+async def list_resources() -> list[Resource]:
+    """列出可用资源"""
+    return [
+        Resource(
+            uri="memory://constitution",
+            name="患者宪法层记忆",
+            description="患者的核心身份信息，包括姓名、家人、用药等",
+            mimeType="text/plain",
+        ),
+        Resource(
+            uri="memory://recent",
+            name="最近记忆",
+            description="最近添加的记忆（会话层 + 近期事实层）",
+            mimeType="text/plain",
+        ),
+    ]
+
+
+@server.read_resource()
+async def read_resource(uri: str) -> str:
+    """读取资源内容"""
+    service = get_memory_service()
+
+    if uri == "memory://constitution":
+        results = await service.get_constitution()
+        if not results:
+            return "宪法层为空"
+        return "\n".join([f"- {r.content}" for r in results])
+
+    elif uri == "memory://recent":
+        # 搜索最近的记忆（使用通用关键词搜索全部）
+        request = MemorySearchRequest(
+            query="记忆",  # 使用通用关键词
+            include_constitution=False,
+            limit=10,
+            min_score=0.0,  # 不过滤分数，返回所有匹配
+        )
+        results = await service.search_memory(request)
+        if not results:
+            return "暂无最近记忆"
+        return "\n".join([f"[{r.layer.value}] {r.content}" for r in results])
+
+    return f"未知资源: {uri}"
+
+
+# === Main ===
+
+
+async def main():
+    """启动 MCP Server"""
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(
+            read_stream,
+            write_stream,
+            server.create_initialization_options(),
+        )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -1,0 +1,313 @@
+"""
+Memory Anchor Configuration - 配置管理模块
+
+支持三种配置来源（优先级从高到低）：
+1. 环境变量（覆盖所有配置）
+2. 项目配置文件（.memory-anchor/config.yaml）
+3. 全局配置文件（~/.memory-anchor/config.yaml）
+4. 默认值
+
+用法：
+    from backend.config import get_config
+    config = get_config()
+    print(config.project_name)
+    print(config.qdrant_path)
+"""
+
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
+import yaml
+
+
+# 默认全局配置目录
+DEFAULT_GLOBAL_CONFIG_DIR = Path.home() / ".memory-anchor"
+DEFAULT_PROJECT_CONFIG_DIR = Path(".memory-anchor")
+
+
+@dataclass
+class ConstitutionItem:
+    """宪法层条目"""
+    id: str
+    content: str
+    category: Optional[str] = None
+
+
+@dataclass
+class MemoryAnchorConfig:
+    """Memory Anchor 配置"""
+
+    # === 项目信息 ===
+    project_name: str = "default"
+    project_type: str = "ai-development"  # patient-care | ai-development | knowledge-base
+
+    # === 存储路径 ===
+    data_dir: Path = field(default_factory=lambda: DEFAULT_GLOBAL_CONFIG_DIR / "projects" / "default")
+    qdrant_path: Path = field(default_factory=lambda: Path(".qdrant"))
+    qdrant_url: Optional[str] = None  # None 表示使用本地模式
+    sqlite_path: Path = field(default_factory=lambda: Path(".memos") / "constitution_changes.db")
+
+    # === Qdrant 配置 ===
+    collection_prefix: str = "memory_anchor_notes"
+    vector_size: int = 384  # paraphrase-multilingual-MiniLM-L12-v2
+
+    # === 记忆配置 ===
+    max_constitution_items: int = 20
+    min_search_score: float = 0.3
+    session_expire_hours: int = 24
+    require_approval_threshold: float = 0.9
+    approvals_needed: int = 3
+
+    # === 宪法层条目（从 yaml 加载） ===
+    constitution: list[ConstitutionItem] = field(default_factory=list)
+
+    @property
+    def collection_name(self) -> str:
+        """获取 Qdrant collection 名称"""
+        # 安全过滤项目名
+        safe_name = "".join(c for c in self.project_name if c.isalnum() or c in ("_", "-"))
+        if not safe_name or safe_name == "default":
+            return self.collection_prefix
+        return f"{self.collection_prefix}_{safe_name}"
+
+    @property
+    def constitution_yaml_path(self) -> Path:
+        """宪法层配置文件路径"""
+        return self.data_dir / "constitution.yaml"
+
+    def ensure_directories(self):
+        """确保所有必要目录存在"""
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.qdrant_path.parent.mkdir(parents=True, exist_ok=True)
+        self.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _load_yaml_config(path: Path) -> dict:
+    """加载 YAML 配置文件"""
+    if not path.exists():
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except Exception:
+        return {}
+
+
+def _load_constitution_yaml(path: Path) -> list[ConstitutionItem]:
+    """从 constitution.yaml 加载宪法层条目"""
+    if not path.exists():
+        return []
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+
+        items = data.get("constitution", [])
+        return [
+            ConstitutionItem(
+                id=item.get("id", f"item-{i}"),
+                content=item.get("content", ""),
+                category=item.get("category"),
+            )
+            for i, item in enumerate(items)
+            if item.get("content")
+        ]
+    except Exception:
+        return []
+
+
+def load_config(
+    project_id: Optional[str] = None,
+    config_dir: Optional[Path] = None,
+) -> MemoryAnchorConfig:
+    """
+    加载配置
+
+    Args:
+        project_id: 项目 ID（用于隔离不同项目的数据）
+        config_dir: 配置目录（默认 ~/.memory-anchor）
+
+    Returns:
+        配置对象
+    """
+    # 1. 确定配置目录
+    global_config_dir = config_dir or DEFAULT_GLOBAL_CONFIG_DIR
+
+    # 2. 确定项目 ID（优先级：参数 > 环境变量 > 默认）
+    project = project_id or os.getenv("MCP_MEMORY_PROJECT_ID", "default")
+
+    # 3. 确定数据目录
+    data_dir = global_config_dir / "projects" / project
+
+    # 4. 加载全局配置
+    global_config_path = global_config_dir / "config.yaml"
+    global_cfg = _load_yaml_config(global_config_path)
+
+    # 5. 加载项目配置
+    project_config_path = data_dir / "config.yaml"
+    project_cfg = _load_yaml_config(project_config_path)
+
+    # 6. 合并配置（项目覆盖全局）
+    merged = {**global_cfg, **project_cfg}
+
+    # 7. 环境变量覆盖
+    env_overrides = {
+        "qdrant_url": os.getenv("QDRANT_URL"),
+        "project_name": os.getenv("MCP_MEMORY_PROJECT_ID"),
+    }
+
+    for key, value in env_overrides.items():
+        if value:
+            merged[key] = value
+
+    # 8. 构建配置对象
+    config = MemoryAnchorConfig(
+        project_name=merged.get("project_name", project),
+        project_type=merged.get("project_type", "ai-development"),
+        data_dir=data_dir,
+        qdrant_path=Path(merged.get("qdrant_path", ".qdrant")),
+        qdrant_url=merged.get("qdrant_url"),
+        sqlite_path=data_dir / "constitution_changes.db",
+        collection_prefix=merged.get("collection_prefix", "memory_anchor_notes"),
+        vector_size=merged.get("vector_size", 384),
+        max_constitution_items=merged.get("max_constitution_items", 20),
+        min_search_score=merged.get("min_search_score", 0.3),
+        session_expire_hours=merged.get("session_expire_hours", 24),
+        require_approval_threshold=merged.get("require_approval_threshold", 0.9),
+        approvals_needed=merged.get("approvals_needed", 3),
+    )
+
+    # 9. 加载宪法层条目
+    constitution_path = data_dir / "constitution.yaml"
+    config.constitution = _load_constitution_yaml(constitution_path)
+
+    return config
+
+
+# === 全局单例 ===
+_config: Optional[MemoryAnchorConfig] = None
+
+
+def get_config(
+    project_id: Optional[str] = None,
+    force_reload: bool = False,
+) -> MemoryAnchorConfig:
+    """
+    获取配置单例
+
+    Args:
+        project_id: 项目 ID
+        force_reload: 强制重新加载
+
+    Returns:
+        配置对象
+    """
+    global _config
+
+    if _config is None or force_reload:
+        _config = load_config(project_id=project_id)
+
+    return _config
+
+
+def reset_config():
+    """重置配置单例（用于测试）"""
+    global _config
+    _config = None
+
+
+def create_default_constitution_yaml(path: Path, project_type: str = "ai-development"):
+    """
+    创建默认的 constitution.yaml 文件
+
+    Args:
+        path: 文件路径
+        project_type: 项目类型
+    """
+    templates = {
+        "ai-development": {
+            "version": 1,
+            "project": {
+                "name": "My AI Project",
+                "type": "ai-development",
+            },
+            "constitution": [
+                {
+                    "id": "philosophy",
+                    "category": "item",
+                    "content": "把 AI 当作阿尔茨海默症患者——能力强但易失忆，Memory Anchor 是 AI 的外挂海马体",
+                },
+                {
+                    "id": "memory-model",
+                    "category": "routine",
+                    "content": "三层记忆模型：宪法层（核心身份）→ 事实层（长期记忆）→ 会话层（短期记忆）",
+                },
+            ],
+            "settings": {
+                "max_constitution_items": 20,
+                "min_search_score": 0.3,
+                "session_expire_hours": 24,
+            },
+        },
+        "patient-care": {
+            "version": 1,
+            "project": {
+                "name": "患者记忆辅助",
+                "type": "patient-care",
+            },
+            "constitution": [
+                {
+                    "id": "patient-name",
+                    "category": "person",
+                    "content": "患者姓名：[请填写]",
+                },
+                {
+                    "id": "emergency-contact",
+                    "category": "person",
+                    "content": "紧急联系人：[请填写姓名和电话]",
+                },
+            ],
+            "settings": {
+                "max_constitution_items": 20,
+                "min_search_score": 0.3,
+                "session_expire_hours": 24,
+            },
+        },
+        "knowledge-base": {
+            "version": 1,
+            "project": {
+                "name": "个人知识库",
+                "type": "knowledge-base",
+            },
+            "constitution": [
+                {
+                    "id": "user-identity",
+                    "category": "person",
+                    "content": "知识库所有者：[请填写]",
+                },
+            ],
+            "settings": {
+                "max_constitution_items": 50,
+                "min_search_score": 0.2,
+                "session_expire_hours": 168,  # 7 days
+            },
+        },
+    }
+
+    template = templates.get(project_type, templates["ai-development"])
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.dump(template, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+
+__all__ = [
+    "MemoryAnchorConfig",
+    "ConstitutionItem",
+    "get_config",
+    "load_config",
+    "reset_config",
+    "create_default_constitution_yaml",
+]

@@ -1,0 +1,68 @@
+# Memory Anchor - 患者照护场景示例
+# 用于阿尔茨海默症患者的记忆辅助系统
+version: 1
+
+project:
+  name: "妈妈的记忆"
+  type: "patient-care"
+  description: "帮助妈妈记住重要的人和事"
+  created_at: "2025-01-01"
+
+# 宪法层条目 - 患者的核心身份和关键信息
+# 这些信息会在每次 AI 会话开始时自动加载
+constitution:
+  # 患者基本信息
+  - id: "patient-identity"
+    category: "person"
+    content: "患者姓名：王阿姨，75岁，住在北京市朝阳区幸福小区3号楼502室"
+
+  # 关键家庭成员
+  - id: "daughter"
+    category: "person"
+    content: "女儿王小红，电话 13800138000，每周日下午来探望，喜欢带妈妈喜欢的桂花糕"
+
+  - id: "son"
+    category: "person"
+    content: "儿子王小明，电话 13900139000，在上海工作，每月回来一次，通常是月底周末"
+
+  - id: "caregiver"
+    category: "person"
+    content: "护工张姐，每天早8点到晚6点，电话 15800158000，休息日是周三"
+
+  # 医疗信息（关键！）
+  - id: "medication-morning"
+    category: "routine"
+    content: "每天早饭后吃药：降压药（络活喜）1片 + 阿尔茨海默药（安理申）1片"
+
+  - id: "medication-evening"
+    category: "routine"
+    content: "每天晚饭后吃药：降压药（络活喜）1片"
+
+  - id: "allergy"
+    category: "item"
+    content: "对青霉素过敏！就医时务必告知医生。可以用头孢类抗生素替代"
+
+  - id: "hospital"
+    category: "place"
+    content: "定点医院：北京朝阳医院，主治医生是神经内科的李医生，每月15号复诊"
+
+  # 日常习惯
+  - id: "daily-routine"
+    category: "routine"
+    content: "每天下午3点在小区花园散步30分钟，和邻居刘奶奶一起"
+
+  - id: "favorite-food"
+    category: "item"
+    content: "最爱吃：红烧肉、桂花糕、小米粥。不喜欢：辣的、油炸的"
+
+  - id: "tv-show"
+    category: "routine"
+    content: "每晚7点看新闻联播，8点看电视剧，9点半准备睡觉"
+
+# 配置
+settings:
+  # 患者照护场景通常需要更严格的宪法层保护
+  max_constitution_items: 30
+  min_search_score: 0.25  # 降低阈值，尽量召回相关记忆
+  session_expire_hours: 48  # 延长会话记忆，方便追踪
+  require_approval_threshold: 0.95  # 更严格的审批门槛

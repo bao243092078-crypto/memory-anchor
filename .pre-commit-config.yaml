@@ -1,0 +1,74 @@
+# Pre-commit hooks - 清单革命的程序化实现
+# 来源：11-ai-coding-checklist.md Post-landing 清单
+# 版本：2025-12-10
+
+repos:
+  # ========== Python 代码质量 ==========
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.2
+    hooks:
+      # Linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+      # Formatter
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # ========== 通用代码检查 ==========
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # 文件格式
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+
+      # 安全检查
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+
+      # 代码质量
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: check-ast
+
+  # ========== 敏感信息检测 ==========
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package-lock\.json|\.secrets\.baseline
+
+  # ========== 类型检查（可选，按需启用）==========
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.13.0
+  #   hooks:
+  #     - id: mypy
+  #       additional_dependencies: [pydantic>=2.0]
+
+# ========== CI 配置 ==========
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from hooks
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
+
+# ========== 本地配置说明 ==========
+# 安装：
+#   uv add pre-commit --dev
+#   pre-commit install
+#
+# 手动运行：
+#   pre-commit run --all-files
+#
+# 跳过（紧急情况）：
+#   git commit --no-verify -m "hotfix: ..."

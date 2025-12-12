@@ -1,0 +1,75 @@
+# Memory Anchor - 知识管理场景示例
+# 个人知识库，用于语义检索笔记、想法、学习内容
+version: 1
+
+project:
+  name: "my-second-brain"
+  type: "knowledge-base"
+  description: "我的第二大脑 - 用 AI 管理和检索个人知识"
+  created_at: "2025-01-01"
+
+# 宪法层条目 - 知识管理的核心原则和分类体系
+constitution:
+  # 用户身份
+  - id: "user-identity"
+    category: "person"
+    content: "用户是终身学习者，关注领域：AI/ML、产品设计、创业、心理学"
+
+  # 知识管理原则
+  - id: "principle-zettelkasten"
+    category: "routine"
+    content: "采用 Zettelkasten 方法：每条笔记一个原子概念，通过链接形成知识网络"
+
+  - id: "principle-feynman"
+    category: "routine"
+    content: "费曼学习法：如果不能用简单语言解释，说明还没真正理解"
+
+  - id: "principle-spaced"
+    category: "routine"
+    content: "间隔重复：重要概念定期复习，AI 会在相关话题时主动提及"
+
+  # 知识分类体系
+  - id: "category-tech"
+    category: "item"
+    content: "技术笔记分类：编程语言、框架工具、系统设计、AI/ML、DevOps"
+
+  - id: "category-product"
+    category: "item"
+    content: "产品笔记分类：用户研究、产品设计、增长策略、数据分析"
+
+  - id: "category-business"
+    category: "item"
+    content: "商业笔记分类：创业方法论、商业模式、案例分析、投资思考"
+
+  - id: "category-life"
+    category: "item"
+    content: "生活笔记分类：阅读笔记、心理学、健康习惯、人际关系"
+
+  # 输入来源
+  - id: "source-books"
+    category: "item"
+    content: "输入来源-书籍：阅读后提取核心观点，关联已有知识，标注来源页码"
+
+  - id: "source-articles"
+    category: "item"
+    content: "输入来源-文章：标注原文链接，提取核心论点，记录个人思考"
+
+  - id: "source-podcasts"
+    category: "item"
+    content: "输入来源-播客/视频：记录时间戳，提取关键引言，总结核心内容"
+
+  - id: "source-conversations"
+    category: "item"
+    content: "输入来源-对话：与 AI 的深度对话、专家访谈、头脑风暴记录"
+
+  # 输出格式
+  - id: "output-format"
+    category: "routine"
+    content: "笔记输出格式：标题 + 一句话总结 + 核心内容 + 关联笔记 + 来源"
+
+# 配置
+settings:
+  max_constitution_items: 25
+  min_search_score: 0.2  # 知识库需要更低的阈值，召回更多相关内容
+  session_expire_hours: 72  # 延长会话记忆，方便跨天学习
+  require_approval_threshold: 0.85  # 知识类内容审批门槛可以稍低

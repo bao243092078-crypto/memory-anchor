@@ -1,0 +1,67 @@
+# Memory Anchor - AI 开发场景示例
+# 让 AI 助手记住项目上下文、技术决策、开发历史
+version: 1
+
+project:
+  name: "my-awesome-project"
+  type: "ai-development"
+  description: "AI 驱动的项目开发，让 Claude 记住一切"
+  created_at: "2025-01-01"
+
+# 宪法层条目 - 项目的核心身份和技术栈
+constitution:
+  # 用户身份
+  - id: "user-identity"
+    category: "person"
+    content: "用户是 baobao，全栈开发者 + AI 工程师，偏好 Python 和 TypeScript"
+
+  # 项目定位
+  - id: "project-goal"
+    category: "item"
+    content: "构建一个可复制的 AI 自动化流水线，从内容生成到多平台发布"
+
+  # 技术栈
+  - id: "tech-stack-backend"
+    category: "item"
+    content: "后端技术栈：Python 3.12 + FastAPI + Pydantic + SQLAlchemy"
+
+  - id: "tech-stack-frontend"
+    category: "item"
+    content: "前端技术栈：React 18 + TypeScript + Tailwind CSS + Vite"
+
+  - id: "tech-stack-infra"
+    category: "item"
+    content: "基础设施：Docker + GitHub Actions + Vercel（前端）+ Railway（后端）"
+
+  - id: "tech-stack-ai"
+    category: "item"
+    content: "AI 工具栈：Claude Code + MCP + Qdrant + FastEmbed"
+
+  # 开发原则
+  - id: "principle-mvp"
+    category: "routine"
+    content: "MVP 优先：先跑通再优化，不要过度设计。能用 3 行代码解决的不用 10 行"
+
+  - id: "principle-testing"
+    category: "routine"
+    content: "测试要求：核心功能必须有单元测试，API 必须有集成测试"
+
+  - id: "principle-docs"
+    category: "routine"
+    content: "文档要求：公共 API 必须有 docstring，重大决策记录到 ADR"
+
+  # 代码规范
+  - id: "code-style"
+    category: "item"
+    content: "代码规范：使用 Ruff 格式化 Python，使用 Prettier 格式化 TypeScript"
+
+  - id: "commit-style"
+    category: "item"
+    content: "Commit 规范：使用 Conventional Commits（feat/fix/docs/refactor/test/chore）"
+
+# 配置
+settings:
+  max_constitution_items: 20
+  min_search_score: 0.3
+  session_expire_hours: 24
+  require_approval_threshold: 0.9
