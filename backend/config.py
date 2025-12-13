@@ -65,7 +65,17 @@ class MemoryAnchorConfig:
 
     @property
     def collection_name(self) -> str:
-        """获取 Qdrant collection 名称"""
+        """获取 Qdrant collection 名称
+
+        优先级：
+        1. 环境变量 MEMORY_ANCHOR_COLLECTION（用于测试隔离）
+        2. 根据 project_name 生成
+        """
+        # 测试隔离：优先使用环境变量
+        env_collection = os.environ.get("MEMORY_ANCHOR_COLLECTION")
+        if env_collection:
+            return env_collection
+
         # 安全过滤项目名
         safe_name = "".join(c for c in self.project_name if c.isalnum() or c in ("_", "-"))
         if not safe_name or safe_name == "default":

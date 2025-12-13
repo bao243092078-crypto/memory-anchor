@@ -100,7 +100,9 @@ class MemoryService:
     def kernel(self) -> MemoryKernel:
         """统一核心逻辑入口（同步），供 HTTP/MCP/SDK 共用。"""
         if self._kernel is None:
-            self._kernel = MemoryKernel(self.search_service, self.note_repo)
+            # 使用全局单例，确保 SDK 和 MCP 使用同一个实例
+            from backend.core.memory_kernel import get_memory_kernel
+            self._kernel = get_memory_kernel(self.search_service, self.note_repo)
         return self._kernel
 
     @staticmethod

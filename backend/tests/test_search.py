@@ -10,7 +10,7 @@ import os
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.services.search import SearchService, COLLECTION_NAME
+from backend.services.search import SearchService
 
 
 client = TestClient(app)

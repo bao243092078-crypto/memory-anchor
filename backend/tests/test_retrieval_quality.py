@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 import sys
 sys.path.insert(0, "/Users/baobao/projects/阿默斯海默症")
 
-from backend.services.search import SearchService, COLLECTION_NAME
+from backend.services.search import SearchService
 from backend.models.note import MemoryLayer, NoteCategory
 
 
@@ -40,9 +40,10 @@ class TestRetrievalQuality:
         """清理测试数据"""
         try:
             # 删除整个 collection 重建
+            collection_name = self.search.collection_name
             collections = self.search.client.get_collections().collections
-            if any(c.name == COLLECTION_NAME for c in collections):
-                self.search.client.delete_collection(COLLECTION_NAME)
+            if any(c.name == collection_name for c in collections):
+                self.search.client.delete_collection(collection_name)
             self.search._ensure_collection()
         except Exception as e:
             print(f"Cleanup error: {e}")
@@ -236,7 +237,7 @@ class TestSearchServiceBasic:
         """测试 collection 存在"""
         collections = self.search.client.get_collections().collections
         names = [c.name for c in collections]
-        assert COLLECTION_NAME in names
+        assert self.search.collection_name in names
 
     def test_get_stats(self):
         """测试获取统计信息"""

@@ -334,7 +334,7 @@ class SearchService:
             {
                 "id": r.id,
                 "content": r.payload.get("content", ""),
-                "score": r.score,
+                "score": min(1.0, max(0.0, r.score)),  # clamp to [0, 1]
                 "layer": r.payload.get("layer"),
                 "category": r.payload.get("category"),
                 "is_active": r.payload.get("is_active", True),
