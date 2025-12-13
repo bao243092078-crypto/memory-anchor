@@ -1,21 +1,5 @@
-import sys
-import types
-
 import pytest
 from httpx import ASGITransport, AsyncClient
-
-# Provide a lightweight fastembed stub to keep tests self-contained.
-class _FakeTextEmbedding:
-    def __init__(self, model_name=None):
-        self.model_name = model_name
-
-    def embed(self, texts):
-        for _ in texts:
-            yield [0.1] * 384
-
-
-if "fastembed" not in sys.modules:
-    sys.modules["fastembed"] = types.SimpleNamespace(TextEmbedding=_FakeTextEmbedding)
 
 from backend.main import app
 from backend.services import constitution as constitution_module

@@ -75,9 +75,10 @@ TEST_NOTES = [
 
 @pytest.fixture(scope="module")
 def search_service():
-    """创建临时搜索服务实例"""
+    """创建临时搜索服务实例（强制本地模式）"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        service = SearchService(path=tmpdir)
+        # prefer_server=False 确保使用本地临时数据库，不受 Qdrant Server 影响
+        service = SearchService(path=tmpdir, prefer_server=False)
         # 批量索引测试数据
         service.index_notes_batch(TEST_NOTES)
         yield service
