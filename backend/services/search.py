@@ -454,6 +454,56 @@ class SearchService:
             "last_verified": payload.get("last_verified"),
         }
 
+    def update_note(self, note_id: UUID, payload: dict) -> bool:
+        """
+        更新便利贴（重建向量 + 覆盖 payload）。
+
+        Args:
+            note_id: 便利贴 ID
+            payload: 要写入的字段（允许部分字段；缺失字段会从现有记录补齐）
+
+        Returns:
+            是否成功
+        """
+        existing = self.get_note(note_id)
+        merged: dict = dict(existing or {})
+        merged.update(payload or {})
+        merged.pop("id", None)
+
+        created_at = merged.get("created_at")
+        if hasattr(created_at, "isoformat"):
+            created_at = created_at.isoformat()
+
+        expires_at = merged.get("expires_at")
+        if hasattr(expires_at, "isoformat"):
+            expires_at = expires_at.isoformat()
+
+        last_verified = merged.get("last_verified")
+        if hasattr(last_verified, "isoformat"):
+            last_verified = last_verified.isoformat()
+
+        confidence = merged.get("confidence")
+        confidence_value = float(confidence) if confidence is not None else None
+
+        priority = merged.get("priority")
+        priority_value = int(priority) if priority is not None else None
+
+        return self.index_note(
+            note_id=note_id,
+            content=str(merged.get("content", "")),
+            layer=str(merged.get("layer") or "fact"),
+            category=merged.get("category"),
+            is_active=bool(merged.get("is_active", True)),
+            confidence=confidence_value,
+            source=merged.get("source"),
+            agent_id=merged.get("agent_id"),
+            created_at=created_at,
+            expires_at=expires_at,
+            priority=priority_value,
+            created_by=merged.get("created_by"),
+            last_verified=last_verified,
+        )
+
     def delete_note(self, note_id: UUID) -> bool:
         """
         从索引中删除便利贴。
