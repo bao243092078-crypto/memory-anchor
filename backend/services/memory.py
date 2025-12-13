@@ -9,15 +9,16 @@ Memory Service - 统一记忆管理服务
 2. Qdrant 向量数据库（向后兼容）：动态添加的宪法层条目
 """
 
+import asyncio
 from typing import Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field
 
 from backend.models.note import MemoryLayer, NoteCategory
-from backend.config import get_config, ConstitutionItem
+from backend.core.memory_kernel import MemoryKernel
 
 
 class MemorySource(str, Enum):
@@ -80,14 +81,11 @@ class MemoryService:
         """
         self._note_repo = note_repo
         self._search_service = search_service
+        self._kernel: Optional[MemoryKernel] = None
 
     @property
     def note_repo(self):
-        """延迟获取 Note 仓库"""
-        if self._note_repo is None:
-            # 导入放在这里避免循环引用
-            from backend.services.note_repository import get_note_repository
-            self._note_repo = get_note_repository()
+        """Note 仓库（预留）。MVP 阶段可为 None。"""
         return self._note_repo
 
     @property
@@ -97,6 +95,49 @@ class MemoryService:
             from backend.services.search import get_search_service
             self._search_service = get_search_service()
         return self._search_service
+
+    @property
+    def kernel(self) -> MemoryKernel:
+        """统一核心逻辑入口（同步），供 HTTP/MCP/SDK 共用。"""
+        if self._kernel is None:
+            self._kernel = MemoryKernel(self.search_service, self.note_repo)
+        return self._kernel
+
+    @staticmethod
+    def _to_uuid(value: object) -> UUID:
+        if isinstance(value, UUID):
+            return value
+        return UUID(str(value))
+
+    @staticmethod
+    def _to_category(value: object | None) -> Optional[NoteCategory]:
+        if value is None:
+            return None
+        try:
+            return NoteCategory(str(value))
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _to_layer(value: object | None) -> MemoryLayer:
+        if value is None:
+            return MemoryLayer.FACT
+        try:
+            return MemoryLayer(str(value))
+        except ValueError:
+            return MemoryLayer.FACT
+
+    def _dict_to_memory_result(self, data: dict) -> MemoryResult:
+        return MemoryResult(
+            id=self._to_uuid(data.get("id")),
+            content=str(data.get("content", "")),
+            layer=self._to_layer(data.get("layer")),
+            category=self._to_category(data.get("category")),
+            score=float(data.get("score", 0.0) or 0.0),
+            source=data.get("source"),
+            confidence=float(data["confidence"]) if data.get("confidence") is not None else 1.0,
+            is_constitution=bool(data.get("is_constitution", False)),
+        )
 
     async def add_memory(self, request: MemoryAddRequest) -> dict:
         """
@@ -117,67 +158,16 @@ class MemoryService:
             # 即使是照护者，也需要通过专门的宪法层API
             raise ValueError("宪法层创建请使用专用API（需二次确认）")
 
-        # 置信度分级处理（仅AI提取）
-        if request.source == MemorySource.AI_EXTRACTION:
-            if request.confidence >= 0.9:
-                # 高置信度：直接存入事实层
-                status = "saved"
-                requires_approval = False
-            elif request.confidence >= 0.7:
-                # 中置信度：存入待确认区
-                status = "pending_approval"
-                requires_approval = True
-            else:
-                # 低置信度：记录日志但不存储
-                return {
-                    "id": None,
-                    "status": "rejected_low_confidence",
-                    "layer": request.layer.value,
-                    "confidence": request.confidence,
-                    "reason": "置信度低于0.7，不予存储"
-                }
-        else:
-            # 照护者/患者输入：直接存储
-            status = "saved"
-            requires_approval = request.requires_approval
-
-        # 创建 Note
-        note_id = uuid4()
-        now = datetime.now()
-
-        # 存储到数据库
-        note_data = {
-            "id": note_id,
-            "content": request.content,
-            "layer": request.layer.value,
-            "category": request.category.value if request.category else None,
-            "confidence": request.confidence,
-            "created_by": request.source.value,
-            "created_at": now,
-            "expires_at": request.expires_at,
-            "is_active": not requires_approval,  # 待审批的先设为非激活
-        }
-
-        # 如果有 note_repo，存储到数据库
-        # （MVP阶段可能只存索引）
-
-        # 索引到向量数据库
-        if not requires_approval:
-            self.search_service.index_note(
-                note_id=note_id,
-                content=request.content,
-                layer=request.layer.value,
-                category=request.category.value if request.category else None,
-                is_active=True,
-            )
-
-        return {
-            "id": note_id,
-            "status": status,
-            "layer": request.layer.value,
-            "confidence": request.confidence,
-            "requires_approval": requires_approval,
-        }
+        return await asyncio.to_thread(
+            self.kernel.add_memory,
+            content=request.content,
+            layer=request.layer.value,
+            category=request.category.value if request.category else None,
+            source=request.source.value,
+            confidence=request.confidence,
+            expires_at=request.expires_at,
+            requires_approval=request.requires_approval,
+        )
 
     async def search_memory(self, request: MemorySearchRequest) -> list[MemoryResult]:
         """
@@ -190,63 +180,17 @@ class MemoryService:
         Returns:
             MemoryResult 列表
         """
-        results = []
+        raw_results = await asyncio.to_thread(
+            self.kernel.search_memory,
+            query=request.query,
+            layer=request.layer.value if request.layer else None,
+            category=request.category.value if request.category else None,
+            limit=request.limit,
+            min_score=request.min_score,
+            include_constitution=request.include_constitution,
+        )
 
-        # 1. 如果需要，先加载宪法层（始终可见）
-        if request.include_constitution:
-            constitution_results = self.search_service.search(
-                query=request.query,
-                layer=MemoryLayer.CONSTITUTION.value,
-                limit=10,  # 宪法层通常不多
-            )
-            for r in constitution_results:
-                results.append(MemoryResult(
-                    id=UUID(r["id"]),
-                    content=r["content"],
-                    layer=MemoryLayer.CONSTITUTION,
-                    category=NoteCategory(r["category"]) if r.get("category") else None,
-                    score=r["score"],
-                    confidence=1.0,  # 宪法层置信度始终为1
-                    is_constitution=True,
-                ))
-
-        # 2. 搜索指定层（或事实层+会话层）
-        search_layer = request.layer.value if request.layer else None
-
-        # 如果指定了宪法层，跳过（已在上面处理）
-        if request.layer != MemoryLayer.CONSTITUTION:
-            search_results = self.search_service.search(
-                query=request.query,
-                layer=search_layer,
-                category=request.category.value if request.category else None,
-                limit=request.limit,
-            )
-
-            for r in search_results:
-                # 过滤低分结果
-                if r["score"] < request.min_score:
-                    continue
-
-                # 跳过已添加的宪法层结果
-                if r.get("layer") == MemoryLayer.CONSTITUTION.value:
-                    continue
-
-                results.append(MemoryResult(
-                    id=UUID(r["id"]),
-                    content=r["content"],
-                    layer=MemoryLayer(r["layer"]),
-                    category=NoteCategory(r["category"]) if r.get("category") else None,
-                    score=r["score"],
-                    confidence=r.get("confidence", 1.0),
-                    is_constitution=False,
-                ))
-
-        # 3. 按分数排序，但宪法层始终在前
-        constitution_results = [r for r in results if r.is_constitution]
-        other_results = [r for r in results if not r.is_constitution]
-        other_results.sort(key=lambda x: x.score, reverse=True)
-
-        return constitution_results + other_results[:request.limit]
+        return [self._dict_to_memory_result(r) for r in raw_results]
 
     async def get_constitution(self) -> list[MemoryResult]:
         """
@@ -260,62 +204,8 @@ class MemoryService:
 
         两个来源会合并返回，YAML 条目在前。
         """
-        results = []
-
-        # 1. 从 YAML 配置加载宪法层（优先）
-        config = get_config()
-        for item in config.constitution:
-            # 将 ConstitutionItem 转为 MemoryResult
-            category = None
-            if item.category:
-                try:
-                    category = NoteCategory(item.category)
-                except ValueError:
-                    pass  # 忽略无效分类
-
-            results.append(MemoryResult(
-                id=uuid4(),  # YAML 条目生成临时 UUID
-                content=item.content,
-                layer=MemoryLayer.CONSTITUTION,
-                category=category,
-                score=1.0,  # 宪法层分数始终为1
-                source=f"yaml:{item.id}",  # 标记来源
-                confidence=1.0,
-                is_constitution=True,
-            ))
-
-        # 2. 从 Qdrant 加载动态添加的宪法层条目（向后兼容）
-        try:
-            qdrant_results = self.search_service.search(
-                query="",  # 空查询获取全部
-                layer=MemoryLayer.CONSTITUTION.value,
-                limit=config.max_constitution_items,
-            )
-
-            # 如果空查询不工作，用通用查询
-            if not qdrant_results:
-                qdrant_results = self.search_service.search(
-                    query="核心信息",
-                    layer=MemoryLayer.CONSTITUTION.value,
-                    limit=config.max_constitution_items,
-                )
-
-            for r in qdrant_results:
-                results.append(MemoryResult(
-                    id=UUID(r["id"]),
-                    content=r["content"],
-                    layer=MemoryLayer.CONSTITUTION,
-                    category=NoteCategory(r["category"]) if r.get("category") else None,
-                    score=1.0,
-                    source="qdrant",  # 标记来源
-                    confidence=1.0,
-                    is_constitution=True,
-                ))
-        except Exception:
-            # Qdrant 不可用时仍返回 YAML 条目
-            pass
-
-        return results
+        raw_results = await asyncio.to_thread(self.kernel.get_constitution)
+        return [self._dict_to_memory_result(r) for r in raw_results]
 
 
 # 全局单例

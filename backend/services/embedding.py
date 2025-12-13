@@ -35,7 +35,8 @@ def embed_text(text: str) -> List[float]:
     """
     model = get_embedding_model()
     embeddings = list(model.embed([text]))
-    return embeddings[0].tolist()
+    emb = embeddings[0]
+    return emb.tolist() if hasattr(emb, "tolist") else list(emb)
 
 
 def embed_batch(texts: List[str]) -> List[List[float]]:
@@ -53,7 +54,7 @@ def embed_batch(texts: List[str]) -> List[List[float]]:
 
     model = get_embedding_model()
     embeddings = list(model.embed(texts))
-    return [emb.tolist() for emb in embeddings]
+    return [emb.tolist() if hasattr(emb, "tolist") else list(emb) for emb in embeddings]
 
 
 # 导出

@@ -60,6 +60,9 @@ def _lazy_collection_name() -> str:
 # 实际使用时应通过 _get_collection_name() 或 SearchService.collection_name
 COLLECTION_NAME = _get_collection_name()
 
+# 向后兼容：测试/外部代码可能使用 VECTOR_SIZE 常量
+VECTOR_SIZE = get_config().vector_size
+
 
 def _get_qdrant_client(
     local_path: Optional[str] = None,
@@ -158,6 +161,14 @@ class SearchService:
         layer: str,
         category: Optional[str] = None,
         is_active: bool = True,
+        confidence: Optional[float] = None,
+        source: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        created_at: Optional[str] = None,
+        expires_at: Optional[str] = None,
+        priority: Optional[int] = None,
+        created_by: Optional[str] = None,
+        last_verified: Optional[str] = None,
     ) -> bool:
         """
         索引一条便利贴到向量数据库。
@@ -168,21 +179,44 @@ class SearchService:
             layer: 记忆层级 (constitution/fact/session)
             category: 类别 (person/place/event/item/routine)
             is_active: 是否激活
+            confidence: 置信度（可选，0-1）
+            source: 来源标记（可选）
+            agent_id: 会话层隔离用 agent_id（可选）
+            created_at: ISO 时间字符串（可选）
+            expires_at: ISO 时间字符串（可选）
 
         Returns:
             是否成功
         """
         vector = embed_text(content)
 
+        payload: dict = {
+            "content": content,
+            "layer": layer,
+            "category": category,
+            "is_active": is_active,
+        }
+        if confidence is not None:
+            payload["confidence"] = confidence
+        if source is not None:
+            payload["source"] = source
+        if agent_id is not None:
+            payload["agent_id"] = agent_id
+        if created_at is not None:
+            payload["created_at"] = created_at
+        if expires_at is not None:
+            payload["expires_at"] = expires_at
+        if priority is not None:
+            payload["priority"] = priority
+        if created_by is not None:
+            payload["created_by"] = created_by
+        if last_verified is not None:
+            payload["last_verified"] = last_verified
+
         point = PointStruct(
             id=str(note_id),
             vector=vector,
-            payload={
-                "content": content,
-                "layer": layer,
-                "category": category,
-                "is_active": is_active,
-            },
+            payload=payload,
         )
 
         self.client.upsert(
@@ -220,6 +254,11 @@ class SearchService:
                     "layer": n["layer"],
                     "category": n.get("category"),
                     "is_active": n.get("is_active", True),
+                    **({"confidence": n["confidence"]} if n.get("confidence") is not None else {}),
+                    **({"source": n["source"]} if n.get("source") is not None else {}),
+                    **({"agent_id": n["agent_id"]} if n.get("agent_id") is not None else {}),
+                    **({"created_at": n["created_at"]} if n.get("created_at") is not None else {}),
+                    **({"expires_at": n["expires_at"]} if n.get("expires_at") is not None else {}),
                 },
             )
             for n, vec in zip(notes, vectors)
@@ -239,6 +278,7 @@ class SearchService:
         layer: Optional[str] = None,
         category: Optional[str] = None,
         only_active: bool = True,
+        agent_id: Optional[str] = None,
     ) -> List[dict]:
         """
         语义搜索便利贴。
@@ -249,6 +289,7 @@ class SearchService:
             layer: 过滤记忆层级
             category: 过滤类别
             only_active: 是否只返回激活的
+            agent_id: 会话层隔离用 agent_id（仅当 layer=session 时生效）
 
         Returns:
             搜索结果列表，包含 id, content, score, layer, category
@@ -273,6 +314,12 @@ class SearchService:
                 FieldCondition(key="category", match=MatchValue(value=category))
             )
 
+        # 会话层隔离：仅在显式查询 session 层时启用
+        if agent_id and layer == "session":
+            must_conditions.append(
+                FieldCondition(key="agent_id", match=MatchValue(value=agent_id))
+            )
+
         query_filter = Filter(must=must_conditions) if must_conditions else None
 
         # 使用新版 Qdrant API: query_points
@@ -290,9 +337,122 @@ class SearchService:
                 "score": r.score,
                 "layer": r.payload.get("layer"),
                 "category": r.payload.get("category"),
+                "is_active": r.payload.get("is_active", True),
+                "confidence": r.payload.get("confidence"),
+                "source": r.payload.get("source"),
+                "created_by": r.payload.get("created_by"),
+                "priority": r.payload.get("priority"),
+                "agent_id": r.payload.get("agent_id"),
+                "created_at": r.payload.get("created_at"),
+                "expires_at": r.payload.get("expires_at"),
+                "last_verified": r.payload.get("last_verified"),
             }
             for r in results.points
         ]
+
+    def list_notes(
+        self,
+        *,
+        layer: Optional[str] = None,
+        category: Optional[str] = None,
+        only_active: bool = True,
+        limit: int = 50,
+    ) -> List[dict]:
+        """
+        列出便利贴（不做向量检索）。
+
+        用于：
+        - 宪法层全量预加载（不依赖 top-k 检索）
+        - 后续 CRUD / 分页等
+
+        Args:
+            layer: 过滤记忆层级
+            category: 过滤类别
+            only_active: 是否只返回激活的
+            limit: 返回数量限制
+
+        Returns:
+            列表结果，包含 id, content, layer, category 等 payload 字段
+        """
+        must_conditions = []
+
+        if only_active:
+            must_conditions.append(
+                FieldCondition(key="is_active", match=MatchValue(value=True))
+            )
+        if layer:
+            must_conditions.append(
+                FieldCondition(key="layer", match=MatchValue(value=layer))
+            )
+        if category:
+            must_conditions.append(
+                FieldCondition(key="category", match=MatchValue(value=category))
+            )
+
+        scroll_filter = Filter(must=must_conditions) if must_conditions else None
+        records, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=scroll_filter,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        return [
+            {
+                "id": r.id,
+                "content": (r.payload or {}).get("content", ""),
+                "layer": (r.payload or {}).get("layer"),
+                "category": (r.payload or {}).get("category"),
+                "is_active": (r.payload or {}).get("is_active", True),
+                "confidence": (r.payload or {}).get("confidence"),
+                "source": (r.payload or {}).get("source"),
+                "created_by": (r.payload or {}).get("created_by"),
+                "priority": (r.payload or {}).get("priority"),
+                "agent_id": (r.payload or {}).get("agent_id"),
+                "created_at": (r.payload or {}).get("created_at"),
+                "expires_at": (r.payload or {}).get("expires_at"),
+                "last_verified": (r.payload or {}).get("last_verified"),
+            }
+            for r in records
+        ]
+
+    def get_note(self, note_id: UUID) -> Optional[dict]:
+        """
+        获取单条便利贴（payload 读取）。
+
+        Args:
+            note_id: 便利贴 ID
+
+        Returns:
+            dict 或 None
+        """
+        points = self.client.retrieve(
+            collection_name=self.collection_name,
+            ids=[str(note_id)],
+            with_payload=True,
+            with_vectors=False,
+        )
+        if not points:
+            return None
+
+        point = points[0]
+        payload = point.payload or {}
+        return {
+            "id": point.id,
+            "content": payload.get("content", ""),
+            "layer": payload.get("layer"),
+            "category": payload.get("category"),
+            "is_active": payload.get("is_active", True),
+            "confidence": payload.get("confidence"),
+            "source": payload.get("source"),
+            "created_by": payload.get("created_by"),
+            "priority": payload.get("priority"),
+            "agent_id": payload.get("agent_id"),
+            "created_at": payload.get("created_at"),
+            "expires_at": payload.get("expires_at"),
+            "last_verified": payload.get("last_verified"),
+        }
 
     def delete_note(self, note_id: UUID) -> bool:
         """

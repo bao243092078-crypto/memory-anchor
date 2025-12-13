@@ -162,6 +162,17 @@ def load_config(
         if value:
             merged[key] = value
 
+    # sqlite_path 优先级：
+    # 1) 显式配置（config.yaml / env）
+    # 2) 当前工作目录已有 .memos/constitution_changes.db（开发/仓库模式，避免“丢数据”）
+    # 3) 默认使用全局项目数据目录（多项目隔离）
+    sqlite_path_override = merged.get("sqlite_path") or os.getenv("MCP_MEMORY_SQLITE_PATH")
+    if sqlite_path_override:
+        sqlite_path = Path(str(sqlite_path_override)).expanduser()
+    else:
+        local_sqlite = Path(".memos") / "constitution_changes.db"
+        sqlite_path = local_sqlite if local_sqlite.exists() else (data_dir / "constitution_changes.db")
+
     # 8. 构建配置对象
     config = MemoryAnchorConfig(
         project_name=merged.get("project_name", project),
@@ -169,7 +180,7 @@ def load_config(
         data_dir=data_dir,
         qdrant_path=Path(merged.get("qdrant_path", ".qdrant")),
         qdrant_url=merged.get("qdrant_url"),
-        sqlite_path=data_dir / "constitution_changes.db",
+        sqlite_path=sqlite_path,
         collection_prefix=merged.get("collection_prefix", "memory_anchor_notes"),
         vector_size=merged.get("vector_size", 384),
         max_constitution_items=merged.get("max_constitution_items", 20),

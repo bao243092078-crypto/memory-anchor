@@ -12,12 +12,13 @@ MemoryKernel - Memory Anchor 核心引擎
 """
 
 from typing import List, Optional, Dict, Any
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5, NAMESPACE_URL
 from datetime import datetime
 from enum import Enum
 
 # 导入现有的 models 和 services
 from backend.models.note import MemoryLayer, NoteCategory
+from backend.config import get_config
 
 
 class MemorySource(str, Enum):
@@ -89,68 +90,77 @@ class MemoryKernel:
             - score: 相关度分数
             - is_constitution: 是否为宪法层
         """
-        results = []
+        results: list[dict] = []
 
-        # 1. 如果需要，先加载宪法层（始终可见，所有 AI 共享）
+        # 0) 宪法层：不依赖向量检索，始终预加载
+        if layer == MemoryLayer.CONSTITUTION.value:
+            return self.get_constitution()
+
         if include_constitution:
-            constitution_results = self.search.search(
+            results.extend(self.get_constitution())
+
+        # 1) 搜索事实层/会话层
+        search_results: list[dict] = []
+
+        if layer == MemoryLayer.FACT.value:
+            search_results = self.search.search(
                 query=query,
-                layer=MemoryLayer.CONSTITUTION.value,
-                limit=10,
+                limit=limit,
+                layer=MemoryLayer.FACT.value,
+                category=category,
             )
-            for r in constitution_results:
-                results.append({
-                    "id": r["id"],
-                    "content": r["content"],
-                    "layer": MemoryLayer.CONSTITUTION.value,
-                    "category": r.get("category"),
-                    "score": r["score"],
-                    "confidence": 1.0,
-                    "is_constitution": True,
-                })
+        elif layer == MemoryLayer.SESSION.value:
+            search_results = self.search.search(
+                query=query,
+                limit=limit,
+                layer=MemoryLayer.SESSION.value,
+                category=category,
+                agent_id=agent_id,
+            )
+        else:
+            # 未指定层级：事实层共享 + 会话层按 agent_id 隔离
+            search_results.extend(
+                self.search.search(
+                    query=query,
+                    limit=limit,
+                    layer=MemoryLayer.FACT.value,
+                    category=category,
+                )
+            )
+            search_results.extend(
+                self.search.search(
+                    query=query,
+                    limit=limit,
+                    layer=MemoryLayer.SESSION.value,
+                    category=category,
+                    agent_id=agent_id,
+                )
+            )
 
-        # 2. 搜索指定层（或事实层+会话层）
-        search_layer = layer if layer else None
+        for r in search_results:
+            # 过滤低分结果
+            if r["score"] < min_score:
+                continue
 
-        # 如果指定了宪法层，跳过（已在上面处理）
-        if layer != MemoryLayer.CONSTITUTION.value:
-            # 构建过滤条件
-            search_kwargs = {
-                "query": query,
-                "limit": limit,
-            }
-            if search_layer:
-                search_kwargs["layer"] = search_layer
-            if category:
-                search_kwargs["category"] = category
+            # 跳过宪法层（已预加载）
+            if r.get("layer") == MemoryLayer.CONSTITUTION.value:
+                continue
 
-            search_results = self.search.search(**search_kwargs)
+            results.append({
+                "id": r["id"],
+                "content": r["content"],
+                "layer": r["layer"],
+                "category": r.get("category"),
+                "score": r["score"],
+                "confidence": r.get("confidence") if r.get("confidence") is not None else 1.0,
+                "source": r.get("source"),
+                "agent_id": r.get("agent_id"),
+                "created_at": r.get("created_at"),
+                "expires_at": r.get("expires_at"),
+                "is_constitution": False,
+            })
 
-            for r in search_results:
-                # 过滤低分结果
-                if r["score"] < min_score:
-                    continue
-
-                # 跳过已添加的宪法层结果
-                if r.get("layer") == MemoryLayer.CONSTITUTION.value:
-                    continue
-
-                # 会话层隔离：如果指定了 agent_id，只返回该 agent 的会话
-                if r.get("layer") == MemoryLayer.SESSION.value:
-                    if agent_id and r.get("agent_id") != agent_id:
-                        continue
-
-                results.append({
-                    "id": r["id"],
-                    "content": r["content"],
-                    "layer": r["layer"],
-                    "category": r.get("category"),
-                    "score": r["score"],
-                    "confidence": r.get("confidence", 1.0),
-                    "is_constitution": False,
-                })
-
-        # 3. 按分数排序，但宪法层始终在前
+        # 2. 按分数排序，但宪法层始终在前
         constitution_results = [r for r in results if r["is_constitution"]]
         other_results = [r for r in results if not r["is_constitution"]]
         other_results.sort(key=lambda x: x["score"], reverse=True)
@@ -164,6 +174,10 @@ class MemoryKernel:
         category: Optional[str] = None,
         source: str = "caregiver",
         confidence: float = 1.0,
+        priority: Optional[int] = None,
+        created_by: Optional[str] = None,
+        expires_at: Optional[datetime] = None,
+        requires_approval: bool = False,
         agent_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
@@ -180,6 +194,10 @@ class MemoryKernel:
             category: 分类
             source: 来源（"caregiver"/"ai_extraction"/"external_ai"）
             confidence: 置信度（0-1）
+            priority: 优先级（可选，0=最高）
+            created_by: 创建者标识（可选，默认等于 source）
+            expires_at: 过期时间（可选）
+            requires_approval: 是否需要审批（仅对非 AI 写入生效）
             agent_id: Agent ID（会话层需要）
 
         Returns:
@@ -197,10 +215,10 @@ class MemoryKernel:
         if source in ("ai_extraction", "external_ai"):
             if confidence >= 0.9:
                 status = "saved"
-                requires_approval = False
+                needs_approval = False
             elif confidence >= 0.7:
                 status = "pending_approval"
-                requires_approval = True
+                needs_approval = True
             else:
                 return {
                     "id": None,
@@ -212,33 +230,28 @@ class MemoryKernel:
         else:
             # 照护者/患者输入：直接存储
             status = "saved"
-            requires_approval = False
+            needs_approval = requires_approval
 
         # 创建 Note
-        note_id = str(uuid4())
+        note_id = uuid4()
+        created_at = datetime.now().isoformat()
+        created_by_value = created_by or source
 
         # 索引到向量数据库
-        if not requires_approval:
-            # 构建 payload
-            payload_data = {
-                "id": note_id,
-                "content": content,
-                "layer": layer,
-                "is_active": True,
-            }
-            if category:
-                payload_data["category"] = category
-            if agent_id and layer == "session":
-                payload_data["agent_id"] = agent_id
-            if confidence < 1.0:
-                payload_data["confidence"] = confidence
-
+        if not needs_approval:
             self.search.index_note(
-                note_id=UUID(note_id),
+                note_id=note_id,
                 content=content,
                 layer=layer,
                 category=category,
                 is_active=True,
+                confidence=confidence,
+                source=source,
+                agent_id=agent_id if layer == MemoryLayer.SESSION.value else None,
+                created_at=created_at,
+                expires_at=expires_at.isoformat() if expires_at else None,
+                priority=priority,
+                created_by=created_by_value,
             )
 
         return {
@@ -246,7 +259,10 @@ class MemoryKernel:
             "status": status,
             "layer": layer,
             "confidence": confidence,
-            "requires_approval": requires_approval,
+            "requires_approval": needs_approval,
+            "created_at": created_at,
+            "priority": priority,
+            "created_by": created_by_value,
         }
 
     def get_constitution(self) -> List[Dict[str, Any]]:
@@ -259,27 +275,71 @@ class MemoryKernel:
         Returns:
             宪法层记忆列表
         """
-        # 使用通用查询获取所有宪法层数据
-        results = self.search.search(
-            query="核心信息",  # 通用查询词
+        config = get_config()
+
+        results: list[dict] = []
+        seen_contents: set[str] = set()
+
+        # 1) YAML（优先）：来自 ~/.memory-anchor/projects/{project}/constitution.yaml
+        for item in config.constitution:
+            category = None
+            if item.category:
+                try:
+                    category = NoteCategory(item.category).value
+                except ValueError:
+                    category = None
+
+            stable_id = uuid5(
+                NAMESPACE_URL,
+                f"memory-anchor:{config.project_name}:constitution:{item.id}",
+            )
+
+            results.append(
+                {
+                    "id": stable_id,
+                    "content": item.content,
+                    "layer": MemoryLayer.CONSTITUTION.value,
+                    "category": category,
+                    "score": 1.0,
+                    "confidence": 1.0,
+                    "source": f"yaml:{item.id}",
+                    "is_constitution": True,
+                }
+            )
+            seen_contents.add(item.content)
+
+        # 2) Qdrant（向后兼容）：动态宪法条目（如三次审批写入）
+        qdrant_results = self.search.list_notes(
             layer=MemoryLayer.CONSTITUTION.value,
-            limit=20,
+            only_active=True,
+            limit=config.max_constitution_items,
         )
 
-        return [
-            {
-                "id": r["id"],
-                "content": r["content"],
-                "layer": MemoryLayer.CONSTITUTION.value,
-                "category": r.get("category"),
-                "score": 1.0,  # 宪法层分数始终为1
-                "confidence": 1.0,
-                "is_constitution": True,
-            }
-            for r in results
-        ]
+        for r in qdrant_results:
+            content = r.get("content", "")
+            if not content or content in seen_contents:
+                continue
+            seen_contents.add(content)
 
-    def delete_memory(self, note_id: str) -> bool:
+            results.append(
+                {
+                    "id": UUID(str(r["id"])),
+                    "content": content,
+                    "layer": MemoryLayer.CONSTITUTION.value,
+                    "category": r.get("category"),
+                    "score": 1.0,
+                    "confidence": r.get("confidence") if r.get("confidence") is not None else 1.0,
+                    "source": r.get("source") or "qdrant",
+                    "agent_id": r.get("agent_id"),
+                    "created_at": r.get("created_at"),
+                    "expires_at": r.get("expires_at"),
+                    "is_constitution": True,
+                }
+            )
+
+        return results
+
+    def delete_memory(self, note_id: str | UUID) -> bool:
         """
         删除记忆
 
@@ -289,9 +349,10 @@ class MemoryKernel:
         Returns:
             是否成功
         """
-        return self.search.delete_note(UUID(note_id))
+        note_uuid = note_id if isinstance(note_id, UUID) else UUID(str(note_id))
+        return self.search.delete_note(note_uuid)
 
-    def update_memory_status(self, note_id: str, is_active: bool) -> bool:
+    def update_memory_status(self, note_id: str | UUID, is_active: bool) -> bool:
         """
         更新记忆状态（激活/停用）
 
@@ -302,7 +363,8 @@ class MemoryKernel:
         Returns:
             是否成功
         """
-        return self.search.update_note_status(UUID(note_id), is_active)
+        note_uuid = note_id if isinstance(note_id, UUID) else UUID(str(note_id))
+        return self.search.update_note_status(note_uuid, is_active)
 
     def get_stats(self) -> Dict[str, Any]:
         """

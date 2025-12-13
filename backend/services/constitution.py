@@ -22,17 +22,24 @@ from backend.models.constitution_change import (
     ConstitutionProposeRequest,
 )
 from backend.models.note import MemoryLayer, NoteCategory
+from backend.config import get_config
 
 
 # 数据库路径
-DB_PATH = Path(__file__).parent.parent.parent / ".memos" / "constitution_changes.db"
+DB_PATH = get_config().sqlite_path
+
+
+def _get_db_path() -> Path:
+    """获取宪法层审批数据库路径（可在测试中通过 monkeypatch DB_PATH 覆盖）"""
+    return DB_PATH
 
 
 def _init_db():
     """初始化数据库表"""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    db_path = _get_db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -69,7 +76,7 @@ class ConstitutionService:
 
     def _get_conn(self) -> sqlite3.Connection:
         """获取数据库连接"""
-        conn = sqlite3.connect(str(DB_PATH))
+        conn = sqlite3.connect(str(_get_db_path()))
         conn.row_factory = sqlite3.Row
         return conn
 

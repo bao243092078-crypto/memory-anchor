@@ -96,7 +96,7 @@ class QdrantMemoryBackend(AbstractMemoryBackend):
         try:
             # 使用 Qdrant client 直接获取
             points = self.search_service.client.retrieve(
-                collection_name="memory_anchor_notes",
+                collection_name=self.search_service.collection_name,
                 ids=[str(memory_id)],
                 with_payload=True
             )

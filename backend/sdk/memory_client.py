@@ -14,6 +14,7 @@ MemoryClient - Memory Anchor Native SDK
 
 import os
 from typing import List, Optional, Dict, Any
+from uuid import UUID
 
 from backend.core.memory_kernel import MemoryKernel, get_memory_kernel
 
@@ -83,13 +84,14 @@ class MemoryClient:
             for r in results:
                 print(f"[{r['layer']}] {r['content']}")
         """
-        return self.kernel.search_memory(
+        results = self.kernel.search_memory(
             query=query,
             layer=layer,
             limit=limit,
             agent_id=self.agent_id,
             include_constitution=True,
         )
+        return [self._normalize_result(r) for r in results]
 
     def get_constitution(self) -> List[Dict[str, Any]]:
         """
@@ -105,7 +107,7 @@ class MemoryClient:
             for item in constitution:
                 print(item["content"])
         """
-        return self.kernel.get_constitution()
+        return [self._normalize_result(r) for r in self.kernel.get_constitution()]
 
     def add_observation(
         self,
@@ -135,13 +137,14 @@ class MemoryClient:
             if result["status"] == "pending_approval":
                 print("需要照护者确认")
         """
-        return self.kernel.add_memory(
+        result = self.kernel.add_memory(
             content=content,
             layer=layer,
             source="external_ai",  # 标记为外部 AI
             confidence=confidence,
             agent_id=self.agent_id if layer == "session" else None,
         )
+        return self._normalize_result(result)
 
     def get_stats(self) -> Dict[str, Any]:
         """
@@ -151,6 +154,19 @@ class MemoryClient:
             {"total_count": int, "vector_size": int, ...}
         """
         return self.kernel.get_stats()
+
+    @staticmethod
+    def _normalize_result(data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        将内核返回值标准化为 JSON 友好结构。
+
+        - UUID → str
+        """
+        if "id" in data:
+            memory_id = data.get("id")
+            if isinstance(memory_id, UUID):
+                data = {**data, "id": str(memory_id)}
+        return data
 
 
 __all__ = ["MemoryClient"]

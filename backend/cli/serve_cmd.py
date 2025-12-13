@@ -77,12 +77,12 @@ def _serve_http(host: str, port: int, reload: bool):
     console.print()
     console.print(f"[green]✓ 启动 HTTP Server: http://{host}:{port}[/green]")
     console.print()
-    console.print("[dim]API 文档: http://{host}:{port}/docs[/dim]")
+    console.print(f"[dim]API 文档: http://{host}:{port}/docs[/dim]")
     console.print("[dim]按 Ctrl+C 停止服务[/dim]")
     console.print()
 
     uvicorn.run(
-        "backend.api.main:app",
+        "backend.main:app",
         host=host,
         port=port,
         reload=reload,
