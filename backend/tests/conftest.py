@@ -2,30 +2,40 @@
 Pytest configuration and fixtures for backend tests.
 
 This module ensures proper test isolation by:
-1. Using a dedicated test collection name
+1. Using a dedicated test collection name (set before any imports)
 2. Resetting global singletons between tests
 """
 
 import os
 import pytest
 
-# Set test collection name BEFORE any imports
-# This must be done before importing any backend modules
+# Set test collection name BEFORE any imports happen
+# This is critical - must be done at module level, before pytest_configure
 TEST_COLLECTION_NAME = "memory_anchor_test_notes"
+os.environ["MEMORY_ANCHOR_COLLECTION"] = TEST_COLLECTION_NAME
+
+
+def pytest_configure(config):
+    """Set up test environment before any tests are collected."""
+    # Ensure test collection is set (redundant but safe)
+    os.environ["MEMORY_ANCHOR_COLLECTION"] = TEST_COLLECTION_NAME
 
 
 @pytest.fixture(scope="session", autouse=True)
-def set_test_collection():
-    """Set test collection name for the entire test session."""
-    os.environ["MEMORY_ANCHOR_COLLECTION"] = TEST_COLLECTION_NAME
+def cleanup_test_collection():
+    """Clean up test collection after all tests."""
     yield
     # Cleanup: delete test collection after all tests
     try:
+        # Reset singletons first to ensure fresh instances
+        _reset_all_singletons()
         from backend.services.search import SearchService
         s = SearchService()
-        collections = s.client.get_collections().collections
-        if any(c.name == TEST_COLLECTION_NAME for c in collections):
-            s.client.delete_collection(TEST_COLLECTION_NAME)
+        # Only delete if it's the test collection
+        if s.collection_name == TEST_COLLECTION_NAME:
+            collections = s.client.get_collections().collections
+            if any(c.name == TEST_COLLECTION_NAME for c in collections):
+                s.client.delete_collection(TEST_COLLECTION_NAME)
     except Exception:
         pass
 
