@@ -13,13 +13,13 @@ Memory Backends - 可插拔记忆后端
     export MEMORY_BACKEND=mcp-memory-service  # 切换到 mcp-memory-service
 """
 
-from backend.services.backends.qdrant_backend import (
-    QdrantMemoryBackend,
-    get_qdrant_backend,
-)
 from backend.services.backends.mcp_memory_service_backend import (
     McpMemoryServiceBackend,
     get_mcp_memory_backend,
+)
+from backend.services.backends.qdrant_backend import (
+    QdrantMemoryBackend,
+    get_qdrant_backend,
 )
 
 __all__ = [

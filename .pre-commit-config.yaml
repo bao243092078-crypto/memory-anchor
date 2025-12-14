@@ -1,6 +1,13 @@
-# Pre-commit hooks - 清单革命的程序化实现
-# 来源：11-ai-coding-checklist.md Post-landing 清单
-# 版本：2025-12-10
+# Pre-commit hooks - 三步六维验证的自动化实现
+# 来源：08-code-verification.md Step 2: 验 (Six-Dim Verify)
+# 版本：2025-12-14
+#
+# 对应六维度：
+#   ruff        → 代码质量 (10%)
+#   ruff-format → 代码质量 (10%)
+#   mypy        → 类型安全 (15%)
+#   pytest      → 逻辑正确性 (25%) [手动运行]
+#   detect-secrets → 安全风险 (15%)
 
 repos:
   # ========== Python 代码质量 ==========
@@ -44,12 +51,14 @@ repos:
         args: ['--baseline', '.secrets.baseline']
         exclude: package-lock\.json|\.secrets\.baseline
 
-  # ========== 类型检查（可选，按需启用）==========
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.13.0
-  #   hooks:
-  #     - id: mypy
-  #       additional_dependencies: [pydantic>=2.0]
+  # ========== 类型检查（六维度：类型安全 15%）==========
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [pydantic>=2.0, types-requests]
+        args: [--ignore-missing-imports]
+        files: ^backend/
 
 # ========== CI 配置 ==========
 ci:
@@ -62,13 +71,21 @@ ci:
   skip: []
   submodules: false
 
-# ========== 本地配置说明 ==========
-# 安装：
-#   uv add pre-commit --dev
-#   pre-commit install
+# ========== 三步六维验证使用说明 ==========
 #
-# 手动运行：
-#   pre-commit run --all-files
+# Step 2: 验 - 自动化检查
+#   安装 hooks：
+#     uv add pre-commit --dev
+#     pre-commit install
 #
-# 跳过（紧急情况）：
+#   手动运行全量检查：
+#     pre-commit run --all-files
+#
+#   运行测试（逻辑正确性 25%）：
+#     uv run pytest -v
+#
+# Step 3: 存 - 验证通过后
+#   提交代码后，调用 add_memory 记录验证结果
+#
+# 紧急跳过（仅 hotfix）：
 #   git commit --no-verify -m "hotfix: ..."

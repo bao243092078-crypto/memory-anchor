@@ -11,12 +11,9 @@ from uuid import UUID
 
 from backend.services.memory_backend import (
     AbstractMemoryBackend,
+    MemoryCategory,
     MemoryItem,
     MemoryLayer,
-    MemoryCategory,
-    SearchRequest,
-    AddRequest,
-    AddResult,
 )
 from backend.services.search import SearchService, get_search_service
 

@@ -10,15 +10,15 @@ Memory Service - 统一记忆管理服务
 """
 
 import asyncio
-from typing import Optional
-from uuid import UUID
 from datetime import datetime
 from enum import Enum
+from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from backend.models.note import MemoryLayer, NoteCategory
 from backend.core.memory_kernel import MemoryKernel
+from backend.models.note import MemoryLayer, NoteCategory
 
 
 class MemorySource(str, Enum):

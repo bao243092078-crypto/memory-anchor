@@ -1,27 +1,27 @@
 """Business logic services for Memory Anchor"""
 
-from backend.services.embedding import embed_text, embed_batch
-from backend.services.search import SearchService, get_search_service
+from backend.services.backends import (
+    McpMemoryServiceBackend,
+    QdrantMemoryBackend,
+    get_mcp_memory_backend,
+    get_qdrant_backend,
+)
+from backend.services.embedding import embed_batch, embed_text
 
 # 可插拔记忆后端抽象（Step 0 完成）
 from backend.services.memory_backend import (
-    MemoryBackend,
     AbstractMemoryBackend,
-    MemoryItem,
-    MemoryLayer,
-    MemoryCategory,
-    SearchRequest,
     AddRequest,
     AddResult,
-    get_memory_backend,
     BackendType,
+    MemoryBackend,
+    MemoryCategory,
+    MemoryItem,
+    MemoryLayer,
+    SearchRequest,
+    get_memory_backend,
 )
-from backend.services.backends import (
-    QdrantMemoryBackend,
-    get_qdrant_backend,
-    McpMemoryServiceBackend,
-    get_mcp_memory_backend,
-)
+from backend.services.search import SearchService, get_search_service
 
 # TODO: 添加以下服务
 # - tts.py: Edge TTS 语音合成

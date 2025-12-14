@@ -16,13 +16,13 @@ Memory Backend - 可插拔的记忆存储后端抽象
     QdrantBackend / McpMemoryServiceBackend / MemOSBackend (具体实现)
 """
 
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Protocol, runtime_checkable
+from typing import Literal, Optional, Protocol, runtime_checkable
 from uuid import UUID, uuid4
-
 
 # === 核心数据结构 ===
 
@@ -341,10 +341,6 @@ class AbstractMemoryBackend(ABC):
 
 # === 后端工厂 ===
 
-
-import os
-from typing import Literal
-
 # 支持的后端类型
 BackendType = Literal["qdrant", "mcp-memory-service"]
 
@@ -385,9 +381,7 @@ def get_memory_backend(
     selected_backend = backend_type or os.getenv("MEMORY_BACKEND", "qdrant")
 
     if selected_backend == "mcp-memory-service":
-        from backend.services.backends.mcp_memory_service_backend import (
-            get_mcp_memory_backend
-        )
+        from backend.services.backends.mcp_memory_service_backend import get_mcp_memory_backend
         return get_mcp_memory_backend()
     else:
         # 默认使用 Qdrant

@@ -3,14 +3,13 @@ Tests for Memory Anchor MCP Server.
 验证 MCP 工具和资源定义正确。
 """
 
+
 import pytest
-import asyncio
-from uuid import uuid4
 
 from backend.mcp_memory import (
-    list_tools,
-    list_resources,
     call_tool,
+    list_resources,
+    list_tools,
     read_resource,
 )
 
@@ -19,12 +18,12 @@ class TestMCPTools:
     """测试 MCP 工具定义"""
 
     @pytest.mark.asyncio
-    async def test_list_tools_returns_four_tools(self):
-        """验证有四个工具"""
+    async def test_list_tools_returns_five_tools(self):
+        """验证有五个工具"""
         tools = await list_tools()
-        assert len(tools) == 4
+        assert len(tools) == 5
         tool_names = {t.name for t in tools}
-        assert tool_names == {"search_memory", "add_memory", "get_constitution", "propose_constitution_change"}
+        assert tool_names == {"search_memory", "add_memory", "get_constitution", "propose_constitution_change", "sync_to_files"}
 
     @pytest.mark.asyncio
     async def test_search_memory_tool_schema(self):

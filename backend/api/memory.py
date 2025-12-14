@@ -15,10 +15,9 @@ from pydantic import BaseModel, Field
 
 from backend.models.note import MemoryLayer, NoteCategory
 from backend.services.memory import (
-    MemoryService,
     MemoryAddRequest,
-    MemorySearchRequest,
     MemoryResult,
+    MemorySearchRequest,
     MemorySource,
     get_memory_service,
 )

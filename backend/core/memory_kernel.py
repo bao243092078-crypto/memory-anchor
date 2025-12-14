@@ -11,14 +11,15 @@ MemoryKernel - Memory Anchor 核心引擎
 4. 线程安全 - 使用 Qdrant Server 模式，支持并发
 """
 
-from typing import List, Optional, Dict, Any
-from uuid import UUID, uuid4, uuid5, NAMESPACE_URL
 from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
+
+from backend.config import get_config
 
 # 导入现有的 models 和 services
 from backend.models.note import MemoryLayer, NoteCategory
-from backend.config import get_config
 
 
 class MemorySource(str, Enum):

@@ -10,15 +10,17 @@ Twin Mode Integration Test - 双模集成测试
 """
 
 import asyncio
-import pytest
 from uuid import uuid4
 
-# MCP 相关导入（异步）
-from backend.services.memory import MemoryService, MemoryAddRequest, MemorySearchRequest
-from backend.models.note import MemoryLayer, NoteCategory
+import pytest
+
+from backend.models.note import MemoryLayer
 
 # SDK 相关导入（同步）
 from backend.sdk import MemoryClient
+
+# MCP 相关导入（异步）
+from backend.services.memory import MemoryAddRequest, MemorySearchRequest, MemoryService
 
 
 class TestTwinModeIntegration:
@@ -47,7 +49,7 @@ class TestTwinModeIntegration:
             confidence=0.95  # 高置信度，直接存入
         )
         assert sdk_result["status"] == "saved"
-        note_id = sdk_result["id"]
+        _note_id = sdk_result["id"]  # noqa: F841
 
         # 等待索引完成
         await asyncio.sleep(0.5)
@@ -183,7 +185,7 @@ class TestTwinModeIntegration:
             query="会话",
             layer="session"
         )
-        codex_contents = {r["content"] for r in codex_sessions}
+        _codex_contents = {r["content"] for r in codex_sessions}  # noqa: F841
 
         # Codex 应该能看到自己的，看不到 Claude 的
         # （因为 MemoryClient 默认 agent_id="codex"）
@@ -192,6 +194,5 @@ class TestTwinModeIntegration:
 
 if __name__ == "__main__":
     # 简单的命令行测试
-    import sys
     print("运行集成测试...")
     pytest.main([__file__, "-v", "-s"])

@@ -4,8 +4,8 @@ from backend.models.note import (
     MemoryLayer,
     NoteCategory,
     NoteCreate,
-    NoteUpdate,
     NoteResponse,
+    NoteUpdate,
     ReminderCreate,
     ReminderResponse,
 )

@@ -97,8 +97,9 @@ def _serve_mcp_stdio():
     console.print()
 
     # 导入并运行 MCP Server
-    from backend.mcp_memory import main as mcp_main
     import asyncio
+
+    from backend.mcp_memory import main as mcp_main
 
     asyncio.run(mcp_main())
 

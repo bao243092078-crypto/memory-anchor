@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID, uuid4
 
+from backend.config import get_config
 from backend.models.constitution_change import (
     ChangeStatus,
     ChangeType,
@@ -21,9 +22,7 @@ from backend.models.constitution_change import (
     ConstitutionChangeResponse,
     ConstitutionProposeRequest,
 )
-from backend.models.note import MemoryLayer, NoteCategory
-from backend.config import get_config
-
+from backend.models.note import MemoryLayer
 
 # 数据库路径
 DB_PATH = get_config().sqlite_path

@@ -22,15 +22,15 @@ import httpx
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
     PointStruct,
     VectorParams,
-    Filter,
-    FieldCondition,
-    MatchValue,
 )
 
 from backend.config import get_config
-from backend.services.embedding import embed_text, embed_batch
+from backend.services.embedding import embed_batch, embed_text
 
 
 def _get_collection_name() -> str:

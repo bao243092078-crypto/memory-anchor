@@ -469,3 +469,28 @@ POST /api/v1/constitution/approve/{change_id}
 # 查看待审批列表
 GET /api/v1/constitution/pending
 ```
+
+---
+
+## 记忆同步规则（自动继承）
+
+> 本项目遵循全局记忆同步规则，详见 `~/.claude/rules/13-memory-sync.md`
+
+### 快速参考
+
+- **Qdrant** 是记忆单一真相源
+- **`.memos/`** 是人类可读备份
+- 任务完成后调用 `add_memory` 写入
+- 会话开始时调用 `search_memory` 加载上下文
+
+### 记忆块规范
+
+在本文件中使用结构化记忆块：
+
+```memory-anchor
+id: unique-id
+type: decision | bugfix | refactor | discovery | note
+summary: 一句话总结
+layer: fact | session
+tags: [tag1, tag2]
+```

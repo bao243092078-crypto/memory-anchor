@@ -2,13 +2,12 @@
 Search API routes for Memory Anchor.
 语义搜索 API，支持过滤和分页。
 """
-from typing import Optional, List
+from typing import List, Optional
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 from backend.services.search import get_search_service
-
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
 

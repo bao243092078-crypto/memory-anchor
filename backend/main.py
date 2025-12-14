@@ -9,9 +9,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.constitution import router as constitution_router
+from backend.api.memory import router as memory_router
 from backend.api.notes import router as notes_router
 from backend.api.search import router as search_router
-from backend.api.memory import router as memory_router
 
 app = FastAPI(
     title="Memory Anchor API",

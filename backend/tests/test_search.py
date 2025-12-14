@@ -2,16 +2,14 @@
 Tests for Search API and Service.
 验证语义搜索功能和召回率。
 """
-import pytest
-from uuid import uuid4
 import tempfile
-import os
+from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.services.search import SearchService
-
 
 client = TestClient(app)
 

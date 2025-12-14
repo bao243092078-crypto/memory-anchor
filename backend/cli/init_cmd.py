@@ -4,19 +4,17 @@ memory-anchor init - 初始化新项目
 交互式向导，帮助用户创建记忆项目配置。
 """
 
-from pathlib import Path
 from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from backend.config import (
     DEFAULT_GLOBAL_CONFIG_DIR,
     create_default_constitution_yaml,
-    load_config,
 )
 
 console = Console()
@@ -100,7 +98,7 @@ def init_command(
 
     # 4. 创建配置
     console.print()
-    console.print(f"[bold]创建项目配置...[/bold]")
+    console.print("[bold]创建项目配置...[/bold]")
 
     project_dir.mkdir(parents=True, exist_ok=True)
     create_default_constitution_yaml(constitution_path, project_type)

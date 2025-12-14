@@ -10,15 +10,14 @@ Day 7 检索质量测试 - 10个测试场景
 5. 置信度分级处理正确
 """
 
-import pytest
-from uuid import uuid4
-from datetime import datetime, timedelta
-
 import sys
+from uuid import uuid4
+
+import pytest
+
 sys.path.insert(0, "/Users/baobao/projects/阿默斯海默症")
 
 from backend.services.search import SearchService
-from backend.models.note import MemoryLayer, NoteCategory
 
 
 class TestRetrievalQuality:

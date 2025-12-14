@@ -7,7 +7,6 @@ from typing import List
 
 from fastembed import TextEmbedding
 
-
 # 使用 multilingual-e5-large 模型（支持中文，1024维）
 # 也可以使用 BAAI/bge-small-zh-v1.5（中文优化，512维）
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"

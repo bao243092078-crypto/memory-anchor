@@ -21,7 +21,6 @@ from typing import Optional
 
 import yaml
 
-
 # 默认全局配置目录
 DEFAULT_GLOBAL_CONFIG_DIR = Path.home() / ".memory-anchor"
 DEFAULT_PROJECT_CONFIG_DIR = Path(".memory-anchor")

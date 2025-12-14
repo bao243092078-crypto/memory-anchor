@@ -7,18 +7,17 @@ Tests for Memory Write-Search Loop (Sprint 1: 记忆回写闭环)
 3. layer/category/tags 正确存储和过滤
 """
 
-import pytest
-import asyncio
-from uuid import UUID
 from datetime import datetime
 
+import pytest
+
+from backend.models.note import MemoryLayer, NoteCategory
 from backend.services.memory import (
-    MemoryService,
     MemoryAddRequest,
     MemorySearchRequest,
+    MemoryService,
     MemorySource,
 )
-from backend.models.note import MemoryLayer, NoteCategory
 from backend.services.search import SearchService
 
 

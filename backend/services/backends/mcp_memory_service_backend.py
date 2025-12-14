@@ -17,17 +17,17 @@ MCP Memory Service Backend - 基于 mcp-memory-service 的记忆后端实现
 """
 
 import os
-import httpx
-import json
 from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
+import httpx
+
 from backend.services.memory_backend import (
     AbstractMemoryBackend,
+    MemoryCategory,
     MemoryItem,
     MemoryLayer,
-    MemoryCategory,
 )
 
 

@@ -3,18 +3,16 @@ Tests for Memory API endpoints.
 验证 /api/v1/memory/* 接口功能。
 """
 
-import pytest
-import shutil
 import os
+import shutil
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.models.note import MemoryLayer, NoteCategory
-from backend.services.search import SearchService
 from backend.services.memory import MemoryService, get_memory_service
-
+from backend.services.search import SearchService
 
 client = TestClient(app)
 

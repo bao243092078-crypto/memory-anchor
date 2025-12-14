@@ -12,7 +12,6 @@ Memory Anchor MCP Server - 供 Claude Code 使用的记忆接口
 """
 
 import asyncio
-import json
 from typing import Any, Sequence
 from uuid import UUID
 
@@ -20,25 +19,23 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
     Resource,
-    Tool,
     TextContent,
-    CallToolResult,
+    Tool,
 )
 
-from backend.models.note import MemoryLayer, NoteCategory
 from backend.models.constitution_change import (
     ChangeType,
     ConstitutionProposeRequest,
 )
+from backend.models.note import MemoryLayer, NoteCategory
+from backend.services.constitution import get_constitution_service
 from backend.services.memory import (
-    MemoryService,
     MemoryAddRequest,
     MemorySearchRequest,
+    MemoryService,
     MemorySource,
     get_memory_service,
 )
-from backend.services.constitution import get_constitution_service
-
 
 # 创建 MCP Server
 server = Server("memory-anchor")
@@ -227,6 +224,38 @@ async def list_tools() -> list[Tool]:
                 "required": ["proposed_content", "reason"],
             },
         ),
+        Tool(
+            name="sync_to_files",
+            description="""将 Qdrant 中的记忆同步到 .memos/ 文件（人类可读备份）。
+
+**用途**：
+- 将 Qdrant 中的记忆导出为 Markdown 文件
+- 便于人类阅读和版本控制
+- 作为 MCP 离线时的回退数据源
+
+**同步目标**：
+- .memos/fact.md - 事实层记忆
+- .memos/session.md - 会话层记忆
+- .memos/index.md - 记忆索引
+
+**触发时机**：
+- 会话结束时自动调用
+- 用户说"同步记忆"时手动调用""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "项目路径（默认当前目录）",
+                    },
+                    "layers": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": ["fact", "session"]},
+                        "description": "要同步的层级（默认全部）",
+                    },
+                },
+            },
+        ),
     ]
 
 
@@ -243,6 +272,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
         return await _handle_get_constitution(service)
     elif name == "propose_constitution_change":
         return await _handle_propose_constitution_change(arguments)
+    elif name == "sync_to_files":
+        return await _handle_sync_to_files(arguments)
     else:
         return [TextContent(type="text", text=f"未知工具: {name}")]
 
@@ -361,7 +392,6 @@ async def _handle_get_constitution(service: MemoryService) -> Sequence[TextConte
 
 async def _handle_propose_constitution_change(arguments: dict) -> Sequence[TextContent]:
     """处理提议宪法层变更请求"""
-    from uuid import UUID
 
     change_type_str = arguments.get("change_type", "create")
     proposed_content = arguments.get("proposed_content", "")
@@ -401,22 +431,185 @@ async def _handle_propose_constitution_change(arguments: dict) -> Sequence[TextC
         constitution_service = get_constitution_service()
         result = await constitution_service.propose(request, proposer="claude-code")
 
-        output = f"✅ 宪法变更提议已创建\n\n"
-        output += f"📋 变更详情：\n"
+        output = "✅ 宪法变更提议已创建\n\n"
+        output += "📋 变更详情：\n"
         output += f"- ID: {result.id}\n"
         output += f"- 类型: {result.change_type.value}\n"
         output += f"- 内容: {result.proposed_content}\n"
         output += f"- 理由: {result.reason}\n"
         output += f"- 状态: {result.status.value}\n"
         output += f"- 审批进度: {result.approvals_count}/{result.approvals_needed}\n"
-        output += f"\n"
-        output += f"⏳ 下一步：需要照护者审批 3 次才能生效。\n"
+        output += "\n"
+        output += "⏳ 下一步：需要照护者审批 3 次才能生效。\n"
         output += f"   调用 POST /api/v1/constitution/approve/{result.id} 进行审批。"
 
         return [TextContent(type="text", text=output)]
 
     except ValueError as e:
         return [TextContent(type="text", text=f"❌ 错误：{str(e)}")]
+
+
+async def _handle_sync_to_files(arguments: dict) -> Sequence[TextContent]:
+    """处理同步到文件请求 - 将 Qdrant 记忆导出到 .memos/ 目录"""
+    import os
+    from datetime import datetime
+    from pathlib import Path
+
+    from backend.services.search import get_search_service
+
+    project_path = arguments.get("project_path") or os.getcwd()
+    layers = arguments.get("layers") or ["fact", "session"]
+
+    # 确保是列表
+    if isinstance(layers, str):
+        layers = [layers]
+
+    memos_dir = Path(project_path) / ".memos"
+
+    try:
+        # 确保 .memos 目录存在
+        memos_dir.mkdir(parents=True, exist_ok=True)
+
+        search_service = get_search_service()
+        sync_stats = {"fact": 0, "session": 0}
+        all_notes = []
+
+        # 获取各层记忆
+        for layer in layers:
+            notes = search_service.list_notes(layer=layer, limit=500)
+            sync_stats[layer] = len(notes)
+            all_notes.extend(notes)
+
+        # 同步时间戳
+        sync_time = datetime.now().isoformat()
+
+        # 写入 fact.md
+        if "fact" in layers:
+            fact_notes = [n for n in all_notes if n.get("layer") == "fact"]
+            fact_content = _format_notes_markdown(fact_notes, "事实层记忆", sync_time)
+            (memos_dir / "fact.md").write_text(fact_content, encoding="utf-8")
+
+        # 写入 session.md
+        if "session" in layers:
+            session_notes = [n for n in all_notes if n.get("layer") == "session"]
+            session_content = _format_notes_markdown(session_notes, "会话层记忆", sync_time)
+            (memos_dir / "session.md").write_text(session_content, encoding="utf-8")
+
+        # 写入 index.md（索引）
+        index_content = _format_index_markdown(all_notes, sync_time)
+        (memos_dir / "index.md").write_text(index_content, encoding="utf-8")
+
+        # 构建输出
+        output = "✅ 记忆同步完成\n\n"
+        output += f"📂 目标目录: {memos_dir}\n"
+        output += f"⏰ 同步时间: {sync_time}\n\n"
+        output += "📊 统计:\n"
+        for layer in layers:
+            output += f"  - {layer}: {sync_stats.get(layer, 0)} 条\n"
+        output += "\n📄 生成文件:\n"
+        if "fact" in layers:
+            output += "  - fact.md\n"
+        if "session" in layers:
+            output += "  - session.md\n"
+        output += "  - index.md\n"
+
+        return [TextContent(type="text", text=output)]
+
+    except Exception as e:
+        return [TextContent(type="text", text=f"❌ 同步失败: {str(e)}")]
+
+
+def _format_notes_markdown(notes: list, title: str, sync_time: str) -> str:
+    """格式化记忆为 Markdown"""
+    lines = [
+        f"# {title}",
+        "",
+        f"> 同步时间: {sync_time}",
+        f"> 记录数: {len(notes)}",
+        "",
+        "---",
+        "",
+    ]
+
+    if not notes:
+        lines.append("*暂无记录*")
+        return "\n".join(lines)
+
+    # 按类别分组
+    by_category: dict = {}
+    for note in notes:
+        cat = note.get("category") or "未分类"
+        if cat not in by_category:
+            by_category[cat] = []
+        by_category[cat].append(note)
+
+    for category, cat_notes in sorted(by_category.items()):
+        lines.append(f"## {category}")
+        lines.append("")
+        for note in cat_notes:
+            content = note.get("content", "")
+            confidence = note.get("confidence")
+            source = note.get("source")
+            created_at = note.get("created_at", "")
+
+            lines.append(f"- {content}")
+            meta_parts = []
+            if confidence:
+                meta_parts.append(f"置信度: {confidence:.2f}")
+            if source:
+                meta_parts.append(f"来源: {source}")
+            if created_at:
+                meta_parts.append(f"创建: {created_at[:10]}")
+            if meta_parts:
+                lines.append(f"  - *{' | '.join(meta_parts)}*")
+            lines.append("")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def _format_index_markdown(notes: list, sync_time: str) -> str:
+    """格式化记忆索引"""
+    lines = [
+        "# Memory Anchor 索引",
+        "",
+        f"> 同步时间: {sync_time}",
+        "",
+        "---",
+        "",
+        "## 统计",
+        "",
+    ]
+
+    # 统计
+    layer_count: dict = {}
+    category_count: dict = {}
+    for note in notes:
+        layer = note.get("layer") or "unknown"
+        category = note.get("category") or "未分类"
+        layer_count[layer] = layer_count.get(layer, 0) + 1
+        category_count[category] = category_count.get(category, 0) + 1
+
+    lines.append("### 按层级")
+    lines.append("")
+    for layer, count in sorted(layer_count.items()):
+        icon = {"constitution": "🔴", "fact": "🔵", "session": "🟢"}.get(layer, "⚪")
+        lines.append(f"- {icon} {layer}: {count} 条")
+    lines.append("")
+
+    lines.append("### 按类别")
+    lines.append("")
+    for category, count in sorted(category_count.items()):
+        lines.append(f"- {category}: {count} 条")
+    lines.append("")
+
+    lines.append("## 文件")
+    lines.append("")
+    lines.append("- [fact.md](./fact.md) - 事实层记忆")
+    lines.append("- [session.md](./session.md) - 会话层记忆")
+    lines.append("")
+
+    return "\n".join(lines)
 
 
 # === Resources ===

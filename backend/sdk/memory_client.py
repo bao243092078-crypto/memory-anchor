@@ -13,10 +13,10 @@ MemoryClient - Memory Anchor Native SDK
 """
 
 import os
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from backend.core.memory_kernel import MemoryKernel, get_memory_kernel
+from backend.core.memory_kernel import get_memory_kernel
 
 
 class MemoryClient:
