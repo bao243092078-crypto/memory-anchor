@@ -204,11 +204,28 @@ def _is_port_available(host: str, port: int) -> bool:
 
 
 def _check_claude_config(path: Path) -> CheckResult:
+    """检查 MCP 配置（支持全局 ~/.claude.json 和项目级 .mcp.json）"""
+    # 先检查项目级 .mcp.json（优先级更高）
+    project_mcp = Path.cwd() / ".mcp.json"
+    if project_mcp.exists():
+        try:
+            data = json.loads(project_mcp.read_text(encoding="utf-8"))
+            servers = (data or {}).get("mcpServers") or {}
+            if servers.get("memory-anchor"):
+                return CheckResult(
+                    name="MCP 配置",
+                    ok=True,
+                    detail=f"已配置 memory-anchor（项目级 .mcp.json）",
+                )
+        except Exception:
+            pass  # 继续检查全局配置
+
+    # 检查全局 ~/.claude.json
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as e:
         return CheckResult(
-            name="Claude MCP 配置(~/.claude.json)",
+            name="MCP 配置",
             ok=False,
             detail=f"无法解析 JSON: {e}",
             fix="修复 ~/.claude.json 的 JSON 格式后重试",
@@ -218,26 +235,26 @@ def _check_claude_config(path: Path) -> CheckResult:
     server_cfg = servers.get("memory-anchor")
     if not server_cfg:
         return CheckResult(
-            name="Claude MCP 配置(~/.claude.json)",
+            name="MCP 配置",
             ok=False,
             detail="未配置 mcpServers.memory-anchor",
-            fix='添加：{"mcpServers":{"memory-anchor":{"command":"memory-anchor","args":["serve","--project","YOUR_PROJECT"]}}}',
+            fix='在项目目录创建 .mcp.json 或在 ~/.claude.json 中添加配置',
         )
 
     args = server_cfg.get("args") or []
     args_text = " ".join(str(a) for a in args)
     if "--mode" in args_text and "http" in args_text:
         return CheckResult(
-            name="Claude MCP 配置(~/.claude.json)",
+            name="MCP 配置",
             ok=False,
             detail=f"检测到 --mode http（会导致 MCP 红叉）：{args_text}",
             fix="移除 --mode http（MCP 需要 stdio）；使用：memory-anchor serve（默认 mcp-stdio）",
         )
 
     return CheckResult(
-        name="Claude MCP 配置(~/.claude.json)",
+        name="MCP 配置",
         ok=True,
-        detail="已配置 memory-anchor（OK）",
+        detail="已配置 memory-anchor（全局 ~/.claude.json）",
     )
 
 
