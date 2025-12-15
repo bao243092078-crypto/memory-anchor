@@ -21,12 +21,12 @@ class TestMemoryAddAPI:
     """测试 POST /api/v1/memory/add"""
 
     def test_add_fact_memory_success(self):
-        """测试添加事实层记忆"""
+        """测试添加事实层记忆（v2.0 使用新术语 verified_fact）"""
         response = client.post(
             "/api/v1/memory/add",
             json={
                 "content": "患者今天去了公园散步",
-                "layer": "fact",
+                "layer": "verified_fact",  # v2.0 新术语
                 "category": "event",
                 "source": "caregiver",
                 "confidence": 1.0,
@@ -36,17 +36,17 @@ class TestMemoryAddAPI:
         assert response.status_code == 201
         data = response.json()
         assert data["status"] == "saved"
-        assert data["layer"] == "fact"
+        assert data["layer"] == "verified_fact"  # v2.0 新术语
         assert data["confidence"] == 1.0
         assert data["id"] is not None
 
     def test_add_session_memory_success(self):
-        """测试添加会话层记忆"""
+        """测试添加事件层记忆（v2.0 使用新术语 event_log）"""
         response = client.post(
             "/api/v1/memory/add",
             json={
                 "content": "刚才和女儿通了电话",
-                "layer": "session",
+                "layer": "event_log",  # v2.0 新术语
                 "category": "event",
                 "source": "caregiver",
             },
@@ -55,7 +55,7 @@ class TestMemoryAddAPI:
         assert response.status_code == 201
         data = response.json()
         assert data["status"] == "saved"
-        assert data["layer"] == "session"
+        assert data["layer"] == "event_log"  # v2.0 新术语
 
     def test_add_constitution_memory_rejected(self):
         """测试宪法层创建被拒绝"""
@@ -77,7 +77,7 @@ class TestMemoryAddAPI:
             "/api/v1/memory/add",
             json={
                 "content": "患者提到他喜欢下棋",
-                "layer": "fact",
+                "layer": "verified_fact",  # v2.0 新术语
                 "source": "ai_extraction",
                 "confidence": 0.95,
             },
@@ -94,7 +94,7 @@ class TestMemoryAddAPI:
             "/api/v1/memory/add",
             json={
                 "content": "患者可能以前住在上海",
-                "layer": "fact",
+                "layer": "verified_fact",  # v2.0 新术语
                 "source": "ai_extraction",
                 "confidence": 0.75,
             },
@@ -111,7 +111,7 @@ class TestMemoryAddAPI:
             "/api/v1/memory/add",
             json={
                 "content": "患者说了一些模糊的话",
-                "layer": "fact",
+                "layer": "verified_fact",  # v2.0 新术语
                 "source": "ai_extraction",
                 "confidence": 0.5,
             },
@@ -129,7 +129,7 @@ class TestMemoryAddAPI:
             "/api/v1/memory/add",
             json={
                 "content": "",
-                "layer": "fact",
+                "layer": "verified_fact",  # v2.0 新术语
             },
         )
         assert response.status_code == 422
@@ -154,30 +154,30 @@ class TestMemorySearchAPI:
         self.test_path = f".qdrant_test_api_{uuid4().hex[:8]}"
         test_search_service = SearchService(path=self.test_path)
 
-        # 索引测试数据
+        # 索引测试数据（v2.0 使用新术语）
         test_data = [
             {
                 "id": uuid4(),
                 "content": "你是王明，今年75岁",
-                "layer": "constitution",
+                "layer": "identity_schema",  # v2.0 新术语（原 constitution）
                 "category": "person",
             },
             {
                 "id": uuid4(),
                 "content": "女儿王小红，电话13800138000",
-                "layer": "constitution",
+                "layer": "identity_schema",  # v2.0 新术语（原 constitution）
                 "category": "person",
             },
             {
                 "id": uuid4(),
                 "content": "你喜欢下棋和钓鱼",
-                "layer": "fact",
+                "layer": "verified_fact",  # v2.0 新术语（原 fact）
                 "category": "event",
             },
             {
                 "id": uuid4(),
                 "content": "今天去了公园散步",
-                "layer": "session",
+                "layer": "event_log",  # v2.0 新术语（原 session）
                 "category": "event",
             },
         ]
@@ -219,18 +219,18 @@ class TestMemorySearchAPI:
         assert "王小红" in contents or "13800138000" in contents
 
     def test_search_with_layer_filter(self):
-        """测试按层级过滤"""
+        """测试按层级过滤（v2.0 使用新术语 event_log）"""
         response = client.get(
             "/api/v1/memory/search",
-            params={"q": "公园", "layer": "session"},
+            params={"q": "公园", "layer": "event_log"},  # v2.0 新术语
         )
 
         assert response.status_code == 200
         data = response.json()
-        # 结果应该只有 session 层（除了可能的宪法层）
+        # 结果应该只有 event_log 层（除了可能的宪法层）
         for r in data["results"]:
             if not r["is_constitution"]:
-                assert r["layer"] == "session"
+                assert r["layer"] == "event_log"  # v2.0 新术语
 
     def test_search_include_constitution(self):
         """测试宪法层始终包含"""

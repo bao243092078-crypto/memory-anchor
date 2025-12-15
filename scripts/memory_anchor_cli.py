@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-Memory Anchor CLI - 记忆管理命令行工具
+Memory Anchor Dev CLI - 仓库内开发工具（非主 CLI）
 
-用法：
-    memory-anchor harvest --all          收割所有项目的 CLAUDE.md
-    memory-anchor harvest --project PATH 收割指定项目
-    memory-anchor sync --to-files        将 Qdrant 同步到 .memos/
-    memory-anchor sync --from-files      从 .memos/ 导入到 Qdrant
-    memory-anchor sync --status          检查同步状态
-    memory-anchor status                 查看 Qdrant 状态
+⚠️ 注意：正式入口是 `memory-anchor`（见 `backend/cli/`），本脚本是维护/迁移用工具。
+
+用法（推荐用 uv 执行，避免环境问题）：
+    uv run python scripts/memory_anchor_cli.py harvest --all
+    uv run python scripts/memory_anchor_cli.py harvest --project PATH
+    uv run python scripts/memory_anchor_cli.py sync --to-files
+    uv run python scripts/memory_anchor_cli.py sync --from-files
+    uv run python scripts/memory_anchor_cli.py sync --status
+    uv run python scripts/memory_anchor_cli.py status
 """
 
 import argparse

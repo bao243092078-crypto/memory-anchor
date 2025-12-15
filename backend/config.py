@@ -171,6 +171,15 @@ def load_config(
         if value:
             merged[key] = value
 
+    # qdrant_path 优先级：
+    # 1) 显式配置（config.yaml / env）
+    # 2) 默认使用全局项目数据目录（多项目隔离，避免 cwd 变化导致“换了个大脑”）
+    qdrant_path_override = merged.get("qdrant_path") or os.getenv("MCP_MEMORY_QDRANT_PATH")
+    if qdrant_path_override:
+        qdrant_path = Path(str(qdrant_path_override)).expanduser()
+    else:
+        qdrant_path = data_dir / ".qdrant"
+
     # sqlite_path 优先级：
     # 1) 显式配置（config.yaml / env）
     # 2) 当前工作目录已有 .memos/constitution_changes.db（开发/仓库模式，避免“丢数据”）
@@ -187,7 +196,7 @@ def load_config(
         project_name=merged.get("project_name", project),
         project_type=merged.get("project_type", "ai-development"),
         data_dir=data_dir,
-        qdrant_path=Path(merged.get("qdrant_path", ".qdrant")),
+        qdrant_path=qdrant_path,
         qdrant_url=merged.get("qdrant_url"),
         sqlite_path=sqlite_path,
         collection_prefix=merged.get("collection_prefix", "memory_anchor_notes"),

@@ -11,7 +11,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from backend.models.note import MemoryLayer, NoteCategory
 from backend.services.memory import (
@@ -35,6 +35,14 @@ class AddMemoryRequest(BaseModel):
     category: Optional[NoteCategory] = Field(default=None, description="分类")
     source: MemorySource = Field(default=MemorySource.CAREGIVER, description="来源")
     confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="置信度")
+
+    @field_validator("layer", mode="before")
+    @classmethod
+    def normalize_layer(cls, v):
+        """支持 v1.x 旧术语 (constitution/fact/session)"""
+        if isinstance(v, str):
+            return MemoryLayer.from_string(v)
+        return v
 
     model_config = {
         "json_schema_extra": {
@@ -134,7 +142,7 @@ async def add_memory(request: AddMemoryRequest) -> AddMemoryResponse:
 @router.get("/search", response_model=SearchMemoryResponse)
 async def search_memory(
     q: str = Query(..., min_length=1, description="搜索查询"),
-    layer: Optional[MemoryLayer] = Query(default=None, description="过滤记忆层级"),
+    layer: Optional[str] = Query(default=None, description="过滤记忆层级（支持 v1.x: constitution/fact/session）"),
     category: Optional[NoteCategory] = Query(default=None, description="过滤分类"),
     include_constitution: bool = Query(default=True, description="是否始终包含宪法层"),
     limit: int = Query(default=5, ge=1, le=20, description="返回数量限制"),
@@ -153,13 +161,16 @@ async def search_memory(
 
     **示例**：
     - `/memory/search?q=女儿电话` → 返回宪法层联系人信息
-    - `/memory/search?q=今天&layer=session` → 搜索今日会话
+    - `/memory/search?q=今天&layer=session` → 搜索今日会话（或 layer=event_log）
     """
+    # 转换层级（支持 v1.x 旧术语）
+    layer_enum = MemoryLayer.from_string(layer) if layer else None
+
     service = get_memory_service()
 
     internal_request = MemorySearchRequest(
         query=q,
-        layer=layer,
+        layer=layer_enum,
         category=category,
         include_constitution=include_constitution,
         limit=limit,

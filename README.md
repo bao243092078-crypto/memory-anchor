@@ -22,6 +22,16 @@ Memory Anchor 是一个基于 MCP（Model Context Protocol）的 AI 记忆系统
 
 ## 快速开始
 
+### 傻瓜 SOP（5 句话 + 3 个命令）
+
+1. 第一次：运行 `uv run memory-anchor init --project my-project` 创建项目。  
+2. 每天：运行 `uv run memory-anchor serve --project my-project`，让 Claude/Codex 自动连上记忆。  
+3. 看到红叉/报错：先跑 `uv run memory-anchor doctor --project my-project`，按“修复建议”执行。  
+4. 只要你没明确要 HTTP，就不要开端口（MCP 用 stdio，不会端口冲突）。  
+5. 想要 HTTP API 再用 `memory-anchor serve --mode http --port 8000`，端口占用先 doctor。  
+
+（在仓库目录也可以用 `./ma init|up|doctor`，内部等价于 `uv run memory-anchor ...`）
+
 ### 安装
 
 ```bash

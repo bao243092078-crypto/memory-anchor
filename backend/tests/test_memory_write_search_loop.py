@@ -52,7 +52,7 @@ class TestMemoryWriteSearchLoop:
 
         # 验证写入成功
         assert result["status"] == "saved"
-        assert result["layer"] == "fact"
+        assert result["layer"] == "verified_fact"  # v2.0 新术语
         assert result["id"] is not None
         assert not result.get("requires_approval", False)
 
@@ -133,7 +133,7 @@ class TestMemoryWriteSearchLoop:
         result = await memory_service.add_memory(request)
 
         assert result["status"] == "saved"
-        assert result["layer"] == "session"
+        assert result["layer"] == "event_log"  # v2.0 新术语
 
     @pytest.mark.asyncio
     async def test_search_with_category_filter(self, memory_service):

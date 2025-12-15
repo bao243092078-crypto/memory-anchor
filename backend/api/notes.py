@@ -101,15 +101,18 @@ async def create_note(note: NoteCreate) -> NoteResponse:
 
 @router.get("", response_model=list[NoteResponse])
 async def list_notes(
-    layer: MemoryLayer | None = Query(default=None, description="按记忆层级过滤"),
+    layer: str | None = Query(default=None, description="按记忆层级过滤（支持 v1.x: constitution/fact/session）"),
     category: NoteCategory | None = Query(default=None, description="按分类过滤"),
     active_only: bool = Query(default=True, description="仅显示激活的便利贴"),
     limit: int = Query(default=50, ge=1, le=100, description="返回数量限制"),
 ) -> list[NoteResponse]:
     """获取便利贴列表"""
+    # 转换层级（支持 v1.x 旧术语）
+    layer_enum = MemoryLayer.from_string(layer) if layer else None
+
     service = get_notes_service()
     raw_notes = await service.list(
-        layer=layer,
+        layer=layer_enum,
         category=category,
         active_only=active_only,
         limit=_MAX_SCAN_NOTES,

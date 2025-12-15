@@ -15,7 +15,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from backend.core.memory_kernel import MemoryKernel
 from backend.models.note import MemoryLayer, NoteCategory
@@ -38,6 +38,14 @@ class MemoryAddRequest(BaseModel):
     requires_approval: bool = False
     expires_at: Optional[datetime] = None
 
+    @field_validator("layer", mode="before")
+    @classmethod
+    def normalize_layer(cls, v):
+        """支持 v1.x 旧术语 (constitution/fact/session)"""
+        if isinstance(v, str):
+            return MemoryLayer.from_string(v)
+        return v
+
 
 class MemorySearchRequest(BaseModel):
     """搜索记忆请求"""
@@ -47,6 +55,16 @@ class MemorySearchRequest(BaseModel):
     include_constitution: bool = True  # 是否始终包含宪法层
     limit: int = Field(default=5, ge=1, le=20)
     min_score: float = Field(default=0.3, ge=0.0, le=1.0)
+
+    @field_validator("layer", mode="before")
+    @classmethod
+    def normalize_layer(cls, v):
+        """支持 v1.x 旧术语 (constitution/fact/session)"""
+        if v is None:
+            return v
+        if isinstance(v, str):
+            return MemoryLayer.from_string(v)
+        return v
 
 
 class MemoryResult(BaseModel):

@@ -1,10 +1,20 @@
 """
-Memory Anchor MCP Server - 供 Claude Code 使用的记忆接口
+Memory Anchor MCP Server v2.0 - 供 Claude Code 使用的记忆接口
 
-基于 docs/MEMORY_STRATEGY.md 的 MCP 设计：
-- memory://search - 搜索患者记忆
-- memory://add - 添加记忆（仅fact层，需置信度）
-- memory://constitution - 获取宪法层
+基于 docs/MEMORY_STRATEGY.md 的五层认知记忆模型：
+- L0: identity_schema (自我概念) - 核心身份，三次审批
+- L1: active_context (工作记忆) - 会话临时状态，不持久化
+- L2: event_log (情景记忆) - 带时空标记的事件
+- L3: verified_fact (语义记忆) - 验证过的长期事实
+- L4: operational_knowledge (技能图式) - 操作性知识
+
+MCP 工具：
+- search_memory - 搜索患者记忆
+- add_memory - 添加记忆（L2/L3 层）
+- get_constitution - 获取宪法层（L0）
+- log_event - 记录事件到情景记忆（L2）
+- search_events - 搜索事件日志
+- promote_to_fact - 将事件提升为事实（L2 → L3）
 
 使用方式：
 1. 在 Claude Code 的 MCP 配置中添加此服务器
@@ -92,8 +102,15 @@ async def list_tools() -> list[Tool]:
                     },
                     "layer": {
                         "type": "string",
-                        "enum": ["constitution", "fact", "session"],
-                        "description": "过滤记忆层级（可选）",
+                        "enum": [
+                            "identity_schema",
+                            "event_log",
+                            "verified_fact",
+                            "constitution",
+                            "fact",
+                            "session",
+                        ],
+                        "description": "过滤记忆层级（可选）。新术语：identity_schema/event_log/verified_fact；旧术语（兼容）：constitution/fact/session",
                     },
                     "category": {
                         "type": "string",
@@ -136,9 +153,14 @@ async def list_tools() -> list[Tool]:
                     },
                     "layer": {
                         "type": "string",
-                        "enum": ["fact", "session"],
-                        "default": "fact",
-                        "description": "记忆层级（不允许constitution）",
+                        "enum": [
+                            "verified_fact",
+                            "event_log",
+                            "fact",
+                            "session",
+                        ],
+                        "default": "verified_fact",
+                        "description": "记忆层级。推荐：verified_fact（L3）或 event_log（L2）。旧术语 fact/session 仍兼容。不允许 identity_schema/constitution",
                     },
                     "category": {
                         "type": "string",
@@ -250,10 +272,178 @@ async def list_tools() -> list[Tool]:
                     },
                     "layers": {
                         "type": "array",
-                        "items": {"type": "string", "enum": ["fact", "session"]},
-                        "description": "要同步的层级（默认全部）",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "verified_fact",
+                                "event_log",
+                                "fact",
+                                "session",
+                            ],
+                        },
+                        "description": "要同步的层级（默认全部）。新术语：verified_fact/event_log；旧术语：fact/session",
                     },
                 },
+            },
+        ),
+        # ===== L2 Event Log 工具（五层模型新增）=====
+        Tool(
+            name="log_event",
+            description="""记录事件到情景记忆（L2 event_log）。
+
+情景记忆的核心特征（来自认知科学）：
+- **when**：事件发生时间
+- **where**：事件发生地点
+- **who**：涉及的人物
+
+**用途**：
+- 记录患者的日常活动
+- 记录项目开发中的重要事件
+- 记录 Bug 修复、功能完成等里程碑
+
+**与 add_memory 的区别**：
+- log_event 专门用于带时空标记的事件（L2）
+- add_memory 用于通用记忆（L3 verified_fact）
+
+**示例**：
+- "患者今天下午在花园散步，遇到了老朋友张三"
+- "修复了 search_memory 空查询的 Bug"
+- "完成了五层记忆模型的 MCP 工具添加" """,
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "description": "事件内容描述",
+                        "minLength": 1,
+                        "maxLength": 2000,
+                    },
+                    "when": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "事件发生时间（ISO 8601格式，默认当前时间）",
+                    },
+                    "where": {
+                        "type": "string",
+                        "description": "事件发生地点（可选）",
+                        "maxLength": 200,
+                    },
+                    "who": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "涉及的人物列表（可选）",
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": ["person", "place", "event", "item", "routine"],
+                        "description": "事件分类（可选）",
+                    },
+                    "ttl_days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "存活天数（可选，默认永久）",
+                    },
+                    "confidence": {
+                        "type": "number",
+                        "default": 0.8,
+                        "minimum": 0.0,
+                        "maximum": 1.0,
+                        "description": "置信度",
+                    },
+                },
+                "required": ["content"],
+            },
+        ),
+        Tool(
+            name="search_events",
+            description="""搜索事件日志（L2 event_log）。
+
+支持多维度过滤：
+- **时间范围**：start_time / end_time
+- **地点**：where
+- **人物**：who
+- **语义搜索**：query
+
+**与 search_memory 的区别**：
+- search_events 专门搜索 L2 event_log，支持时间范围
+- search_memory 搜索所有层级的记忆
+
+**示例查询**：
+- 搜索上周的所有事件
+- 搜索发生在"花园"的事件
+- 搜索涉及"张三"的事件""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "搜索查询（可选，留空返回最近事件）",
+                    },
+                    "start_time": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "开始时间（ISO 8601格式）",
+                    },
+                    "end_time": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "结束时间（ISO 8601格式）",
+                    },
+                    "where": {
+                        "type": "string",
+                        "description": "地点过滤",
+                    },
+                    "who": {
+                        "type": "string",
+                        "description": "人物过滤（涉及此人的事件）",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "default": 10,
+                        "minimum": 1,
+                        "maximum": 50,
+                        "description": "返回数量限制",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="promote_to_fact",
+            description="""将事件提升为验证事实（L2 → L3）。
+
+当一个事件经过验证，可以从情景记忆（L2 event_log）提升为语义记忆（L3 verified_fact）。
+
+**何时使用**：
+- 事件被照护者/用户确认为真实
+- 临时发现需要转为长期记忆
+- 重复出现的事件需要固化
+
+**提升后的变化**：
+- 从 event_log 层移动到 verified_fact 层
+- 不再受 TTL 限制（永久保留）
+- 标记 verified_by 和 promoted_at
+
+**示例**：
+- 将"患者今天认出了女儿"提升为事实
+- 将"发现 Qdrant 不支持并发"提升为长期记录""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_id": {
+                        "type": "string",
+                        "description": "要提升的事件 ID（UUID）",
+                    },
+                    "verified_by": {
+                        "type": "string",
+                        "default": "caregiver",
+                        "description": "验证者（默认 caregiver）",
+                    },
+                    "notes": {
+                        "type": "string",
+                        "description": "提升备注（可选）",
+                    },
+                },
+                "required": ["event_id"],
             },
         ),
     ]
@@ -274,6 +464,13 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
         return await _handle_propose_constitution_change(arguments)
     elif name == "sync_to_files":
         return await _handle_sync_to_files(arguments)
+    # ===== L2 Event Log 工具（五层模型新增）=====
+    elif name == "log_event":
+        return await _handle_log_event(arguments)
+    elif name == "search_events":
+        return await _handle_search_events(arguments)
+    elif name == "promote_to_fact":
+        return await _handle_promote_to_fact(arguments)
     else:
         return [TextContent(type="text", text=f"未知工具: {name}")]
 
@@ -319,16 +516,16 @@ async def _handle_add_memory(
 ) -> Sequence[TextContent]:
     """处理添加记忆请求"""
     content = arguments.get("content", "")
-    layer = arguments.get("layer", "fact")
+    layer = arguments.get("layer", "verified_fact")  # 默认使用新术语
     category = arguments.get("category")
     confidence = arguments.get("confidence", 0.8)
 
-    # 检查宪法层
-    if layer == "constitution":
+    # 检查宪法层（新旧术语都要阻止）
+    if layer in ("constitution", "identity_schema"):
         return [
             TextContent(
                 type="text",
-                text="❌ 错误：宪法层记忆不允许通过此工具添加。请使用照护者端专用流程。",
+                text="❌ 错误：宪法层（identity_schema）记忆不允许通过此工具添加。请使用 propose_constitution_change 工具。",
             )
         ]
 
@@ -517,6 +714,205 @@ async def _handle_sync_to_files(arguments: dict) -> Sequence[TextContent]:
 
     except Exception as e:
         return [TextContent(type="text", text=f"❌ 同步失败: {str(e)}")]
+
+
+# ===== L2 Event Log 处理函数（五层模型新增）=====
+
+
+async def _handle_log_event(arguments: dict) -> Sequence[TextContent]:
+    """处理记录事件请求（L2 event_log）"""
+    from datetime import datetime
+
+    from backend.core.memory_kernel import get_memory_kernel
+
+    content = arguments.get("content", "")
+    when_str = arguments.get("when")
+    where = arguments.get("where")
+    who = arguments.get("who", [])
+    category = arguments.get("category")
+    ttl_days = arguments.get("ttl_days")
+    confidence = arguments.get("confidence", 0.8)
+
+    if not content:
+        return [TextContent(type="text", text="❌ 错误：content 是必填项")]
+
+    try:
+        # 解析时间
+        when = None
+        if when_str:
+            try:
+                when = datetime.fromisoformat(when_str.replace("Z", "+00:00"))
+            except ValueError:
+                return [
+                    TextContent(
+                        type="text", text=f"❌ 错误：无效的时间格式: {when_str}"
+                    )
+                ]
+
+        kernel = get_memory_kernel()
+        result = kernel.log_event(
+            content=content,
+            when=when,
+            where=where,
+            who=who if who else None,
+            category=category,
+            ttl_days=ttl_days,
+            confidence=confidence,
+        )
+
+        # 格式化输出
+        output = "✅ 事件已记录到情景记忆（L2 event_log）\n\n"
+        output += f"📋 事件详情：\n"
+        output += f"- ID: {result.get('id', 'N/A')}\n"
+        output += f"- 内容: {content}\n"
+        if result.get("when"):
+            output += f"- 时间: {result['when']}\n"
+        if where:
+            output += f"- 地点: {where}\n"
+        if who:
+            output += f"- 人物: {', '.join(who)}\n"
+        if category:
+            output += f"- 分类: {category}\n"
+        if ttl_days:
+            output += f"- TTL: {ttl_days} 天\n"
+        output += f"- 置信度: {confidence}\n"
+
+        return [TextContent(type="text", text=output)]
+
+    except Exception as e:
+        return [TextContent(type="text", text=f"❌ 记录事件失败: {str(e)}")]
+
+
+async def _handle_search_events(arguments: dict) -> Sequence[TextContent]:
+    """处理搜索事件请求（L2 event_log）"""
+    from datetime import datetime
+
+    from backend.core.memory_kernel import get_memory_kernel
+
+    query = arguments.get("query", "")
+    start_time_str = arguments.get("start_time")
+    end_time_str = arguments.get("end_time")
+    where = arguments.get("where")
+    who = arguments.get("who")
+    limit = arguments.get("limit", 10)
+
+    try:
+        # 解析时间
+        start_time = None
+        end_time = None
+
+        if start_time_str:
+            try:
+                start_time = datetime.fromisoformat(
+                    start_time_str.replace("Z", "+00:00")
+                )
+            except ValueError:
+                return [
+                    TextContent(
+                        type="text", text=f"❌ 错误：无效的开始时间格式: {start_time_str}"
+                    )
+                ]
+
+        if end_time_str:
+            try:
+                end_time = datetime.fromisoformat(end_time_str.replace("Z", "+00:00"))
+            except ValueError:
+                return [
+                    TextContent(
+                        type="text", text=f"❌ 错误：无效的结束时间格式: {end_time_str}"
+                    )
+                ]
+
+        kernel = get_memory_kernel()
+        results = kernel.search_events(
+            query=query,
+            start_time=start_time,
+            end_time=end_time,
+            where=where,
+            who=who,
+            limit=limit,
+        )
+
+        # 格式化输出
+        filter_desc = []
+        if query:
+            filter_desc.append(f'查询="{query}"')
+        if start_time:
+            filter_desc.append(f"开始={start_time_str}")
+        if end_time:
+            filter_desc.append(f"结束={end_time_str}")
+        if where:
+            filter_desc.append(f"地点={where}")
+        if who:
+            filter_desc.append(f"人物={who}")
+
+        filter_str = ", ".join(filter_desc) if filter_desc else "无过滤条件"
+
+        output = f"🔍 搜索事件日志（{filter_str}）\n"
+        output += f"📊 找到 {len(results)} 条结果：\n\n"
+
+        if not results:
+            output += "*暂无匹配的事件*"
+        else:
+            for i, event in enumerate(results, 1):
+                output += f"{i}. 🟢 [{event.get('when', 'N/A')}]\n"
+                output += f"   {event.get('content', '')}\n"
+                if event.get("where"):
+                    output += f"   📍 地点: {event['where']}\n"
+                if event.get("who"):
+                    who_list = event["who"]
+                    if isinstance(who_list, list):
+                        output += f"   👤 人物: {', '.join(who_list)}\n"
+                    else:
+                        output += f"   👤 人物: {who_list}\n"
+                output += f"   ID: {event.get('id', 'N/A')}\n"
+                output += "\n"
+
+        return [TextContent(type="text", text=output)]
+
+    except Exception as e:
+        return [TextContent(type="text", text=f"❌ 搜索事件失败: {str(e)}")]
+
+
+async def _handle_promote_to_fact(arguments: dict) -> Sequence[TextContent]:
+    """处理事件提升请求（L2 → L3）"""
+    from backend.core.memory_kernel import get_memory_kernel
+
+    event_id = arguments.get("event_id", "")
+    verified_by = arguments.get("verified_by", "caregiver")
+    notes = arguments.get("notes")
+
+    if not event_id:
+        return [TextContent(type="text", text="❌ 错误：event_id 是必填项")]
+
+    try:
+        kernel = get_memory_kernel()
+        result = kernel.promote_event_to_fact(
+            event_id=event_id,
+            verified_by=verified_by,
+            notes=notes,
+        )
+
+        # 格式化输出
+        output = "✅ 事件已提升为验证事实（L2 → L3）\n\n"
+        output += f"📋 提升详情：\n"
+        output += f"- 原事件 ID: {event_id}\n"
+        output += f"- 新事实 ID: {result.get('fact_id', 'N/A')}\n"
+        output += f"- 验证者: {verified_by}\n"
+        if notes:
+            output += f"- 备注: {notes}\n"
+        output += f"- 提升时间: {result.get('promoted_at', 'N/A')}\n"
+        output += "\n"
+        output += "📝 提升后的变化：\n"
+        output += "- 从 event_log 层移动到 verified_fact 层\n"
+        output += "- 不再受 TTL 限制（永久保留）\n"
+
+        return [TextContent(type="text", text=output)]
+
+    except ValueError as e:
+        return [TextContent(type="text", text=f"❌ 错误：{str(e)}")]
+    except Exception as e:
+        return [TextContent(type="text", text=f"❌ 提升事件失败: {str(e)}")]
 
 
 def _format_notes_markdown(notes: list, title: str, sync_time: str) -> str:

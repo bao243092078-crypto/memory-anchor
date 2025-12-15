@@ -85,6 +85,6 @@ async def test_constitution_proposal_and_approval_flow(async_client):
     assert search_resp.status_code == 200
     results = search_resp.json()["results"]
     assert any(
-        r["content"] == proposed_content and r["layer"] == "constitution"
+        r["content"] == proposed_content and r["layer"] == "identity_schema"  # v2.0 新术语
         for r in results
     )

@@ -14,6 +14,7 @@ Search service for Memory Anchor.
 
 启动 Qdrant Server：
     docker run -d -p 6333:6333 -v $(pwd)/.qdrant_data:/qdrant/storage:z --name qdrant qdrant/qdrant
+    export QDRANT_URL=http://localhost:6333
 """
 from typing import List, Optional
 from uuid import UUID
@@ -64,6 +65,10 @@ COLLECTION_NAME = _get_collection_name()
 VECTOR_SIZE = get_config().vector_size
 
 
+# 进程内缓存：避免本地 Qdrant 重复打开同一路径导致文件锁冲突
+_LOCAL_CLIENT_CACHE: dict[str, QdrantClient] = {}
+
+
 def _get_qdrant_client(
     local_path: Optional[str] = None,
     server_url: Optional[str] = None,
@@ -84,9 +89,10 @@ def _get_qdrant_client(
 
     # 使用配置中的值作为默认
     actual_local_path = local_path or str(config.qdrant_path)
-    actual_server_url = server_url or config.qdrant_url or "http://localhost:6333"
+    # 仅当用户显式配置 QDRANT_URL / config.yaml 时才尝试 Server 模式，避免“隐式连上”其他进程
+    actual_server_url = server_url or config.qdrant_url
 
-    if prefer_server:
+    if prefer_server and actual_server_url:
         try:
             # 快速探测 Qdrant Server 是否可用
             with httpx.Client(timeout=0.5) as http_client:
@@ -97,7 +103,13 @@ def _get_qdrant_client(
             pass
 
     # 降级到本地模式
-    return QdrantClient(path=actual_local_path), "local"
+    cached = _LOCAL_CLIENT_CACHE.get(actual_local_path)
+    if cached is not None:
+        return cached, "local"
+
+    client = QdrantClient(path=actual_local_path)
+    _LOCAL_CLIENT_CACHE[actual_local_path] = client
+    return client, "local"
 
 
 class SearchService:

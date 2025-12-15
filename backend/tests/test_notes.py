@@ -38,7 +38,7 @@ class TestNotesAPI:
         data = response.json()
         assert data["content"] == "下午3点吃药"
         assert data["priority"] == 0
-        assert data["layer"] == "fact"
+        assert data["layer"] == "verified_fact"  # v2.0 新术语（原 fact）
         assert data["is_active"] is True
 
     def test_create_constitution_note(self):
@@ -53,7 +53,7 @@ class TestNotesAPI:
         )
         assert response.status_code == 201
         data = response.json()
-        assert data["layer"] == "constitution"
+        assert data["layer"] == "identity_schema"  # v2.0 新术语（原 constitution）
 
     def test_list_notes(self):
         """获取便利贴列表"""

@@ -65,6 +65,9 @@ docker run -d \
   --name qdrant \
   qdrant/qdrant
 
+# 告诉 Memory Anchor 使用 Server 模式（否则默认走本地模式）
+export QDRANT_URL=http://localhost:6333
+
 # 验证启动
 curl http://localhost:6333/readyz
 # 应返回 "all shards are ready"

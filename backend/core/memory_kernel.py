@@ -1,13 +1,20 @@
 """
-MemoryKernel - Memory Anchor 核心引擎
+MemoryKernel - Memory Anchor 核心引擎 (v2.0)
 
 纯 Python 同步实现，无 async，无框架依赖。
 设计用于多种接入方式：MCP Server (async wrapper) 和 Native SDK (直接调用)。
 
+五层认知记忆模型：
+- L0: identity_schema (自我概念) - 核心身份，三次审批
+- L1: active_context (工作记忆) - 会话临时状态，不持久化
+- L2: event_log (情景记忆) - 带时空标记的事件
+- L3: verified_fact (语义记忆) - 验证过的长期事实
+- L4: operational_knowledge (技能图式) - 操作性知识
+
 核心原则：
 1. 同步接口 - Codex 等脚本直接调用
 2. 依赖注入 - 方便测试和替换存储后端
-3. 无状态 - 所有状态在存储层
+3. 无状态 - 所有状态在存储层（除 L1 active_context）
 4. 线程安全 - 使用 Qdrant Server 模式，支持并发
 """
 
@@ -17,6 +24,7 @@ from typing import Any, Dict, List, Optional
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from backend.config import get_config
+from backend.core.active_context import ActiveContext
 
 # 导入现有的 models 和 services
 from backend.models.note import MemoryLayer, NoteCategory
@@ -30,22 +38,62 @@ class MemorySource(str, Enum):
     EXTERNAL_AI = "external_ai"  # Codex/Gemini 等外部 AI
 
 
+# ===== 向后兼容：层级名称规范化 =====
+# v1.x → v2.x 术语映射
+_LAYER_ALIASES = {
+    # 旧术语 → 新术语（Enum value）
+    "constitution": "identity_schema",
+    "fact": "verified_fact",
+    "session": "event_log",
+    # 新术语保持不变
+    "identity_schema": "identity_schema",
+    "active_context": "active_context",
+    "event_log": "event_log",
+    "verified_fact": "verified_fact",
+    "operational_knowledge": "operational_knowledge",
+}
+
+
+def normalize_layer(layer: Optional[str]) -> Optional[str]:
+    """
+    规范化层级名称，支持 v1.x 旧术语向 v2.x 新术语转换。
+
+    Args:
+        layer: 输入的层级字符串（可能是旧术语或新术语）
+
+    Returns:
+        规范化后的层级字符串（v2.x 术语）
+    """
+    if layer is None:
+        return None
+    return _LAYER_ALIASES.get(layer.lower(), layer)
+
+
 class MemoryKernel:
     """
-    Memory Anchor 核心引擎（同步版本）
+    Memory Anchor 核心引擎 v2.0（同步版本）
 
     这是所有 AI "患者"（Claude/Codex/Gemini）访问记忆的统一入口。
     类比：人类的海马体（负责记忆形成和检索）。
 
+    五层认知记忆模型：
+    - L0: identity_schema - 自我概念（核心身份，三次审批）
+    - L1: active_context - 工作记忆（会话临时状态，不持久化）
+    - L2: event_log - 情景记忆（带时空标记的事件）
+    - L3: verified_fact - 语义记忆（验证过的长期事实）
+    - L4: operational_knowledge - 技能图式（操作性知识）
+
     职责：
-    - 搜索记忆（三层语义检索）
+    - 搜索记忆（五层语义检索）
     - 添加记忆（置信度分级）
     - 管理宪法层（三次审批机制）
+    - 管理活跃上下文（L1 工作记忆）
+    - 事件日志记录（L2 情景记忆）
 
     设计原则：
     - 纯 Python，无 async（方便 Codex 等脚本调用）
     - 依赖注入（search_service, note_repo）
-    - 无状态（所有状态在存储层）
+    - 无状态（所有状态在存储层，除 L1）
     - 线程安全（通过 Qdrant Server 模式）
     """
 
@@ -91,6 +139,9 @@ class MemoryKernel:
             - score: 相关度分数
             - is_constitution: 是否为宪法层
         """
+        # 规范化层级名称（支持 v1.x 旧术语）
+        layer = normalize_layer(layer)
+
         results: list[dict] = []
 
         # 0) 宪法层：不依赖向量检索，始终预加载
@@ -204,8 +255,11 @@ class MemoryKernel:
         Returns:
             {"id": UUID, "status": "saved"/"pending_approval"/"rejected", ...}
         """
+        # 规范化层级名称（支持 v1.x 旧术语）
+        layer = normalize_layer(layer) or "verified_fact"
+
         # 🔴 红线：宪法层保护
-        if layer == "constitution":
+        if layer == MemoryLayer.IDENTITY_SCHEMA.value:
             if source != "caregiver":
                 raise PermissionError(
                     "宪法层只能由照护者修改。请使用 propose_constitution_change()"
@@ -248,7 +302,7 @@ class MemoryKernel:
                 is_active=True,
                 confidence=confidence,
                 source=source,
-                agent_id=agent_id if layer == MemoryLayer.SESSION.value else None,
+                agent_id=agent_id if layer == MemoryLayer.EVENT_LOG.value else None,
                 created_at=created_at,
                 expires_at=expires_at.isoformat() if expires_at else None,
                 priority=priority,
@@ -375,6 +429,225 @@ class MemoryKernel:
             统计信息：total_count, vector_size等
         """
         return self.search.get_stats()
+
+    # ===== L1: Active Context (工作记忆) =====
+
+    def set_active_context(
+        self, key: str, value: Any, ttl: Optional[int] = None
+    ) -> None:
+        """
+        设置活跃上下文（L1 工作记忆）
+
+        Args:
+            key: 键名
+            value: 值（任意类型）
+            ttl: 存活时间（秒），默认 1 小时
+        """
+        ActiveContext.set(key, value, ttl)
+
+    def get_active_context(self, key: str, default: Any = None) -> Any:
+        """
+        获取活跃上下文（L1 工作记忆）
+
+        Args:
+            key: 键名
+            default: 默认值
+
+        Returns:
+            存储的值或默认值
+        """
+        return ActiveContext.get(key, default)
+
+    def clear_active_context(self) -> None:
+        """清除当前会话的所有活跃上下文"""
+        ActiveContext.clear_session()
+
+    def list_active_context(self) -> Dict[str, Any]:
+        """列出当前会话的所有活跃上下文"""
+        return ActiveContext.get_all()
+
+    # ===== L2: Event Log (情景记忆) =====
+
+    def log_event(
+        self,
+        content: str,
+        when: Optional[datetime] = None,
+        where: Optional[str] = None,
+        who: Optional[List[str]] = None,
+        category: Optional[str] = None,
+        source: str = "ai",
+        ttl_days: Optional[int] = None,
+        confidence: float = 0.8,
+        agent_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        记录事件到情景记忆（L2 event_log）
+
+        情景记忆的核心特征（来自认知科学）：
+        - when: 事件发生的时间
+        - where: 事件发生的地点
+        - who: 涉及的人物
+
+        Args:
+            content: 事件内容描述
+            when: 事件时间（默认当前）
+            where: 事件地点
+            who: 涉及的人物列表
+            category: 分类
+            source: 来源 (ai/user/caregiver)
+            ttl_days: 存活天数（None=永久）
+            confidence: 置信度
+            agent_id: Agent ID
+
+        Returns:
+            {"id": UUID, "status": "saved", ...}
+        """
+        event_time = when or datetime.now()
+        participants = who or []
+
+        # 构建丰富的内容（包含时空元数据）
+        enriched_content = content
+        metadata_parts = []
+        if where:
+            metadata_parts.append(f"地点:{where}")
+        if participants:
+            metadata_parts.append(f"人物:{','.join(participants)}")
+        if metadata_parts:
+            enriched_content = f"{content} [{'; '.join(metadata_parts)}]"
+
+        # 计算过期时间
+        expires_at = None
+        if ttl_days:
+            from datetime import timedelta
+            expires_at = event_time + timedelta(days=ttl_days)
+
+        # 调用 add_memory 写入 event_log 层
+        result = self.add_memory(
+            content=enriched_content,
+            layer=MemoryLayer.EVENT_LOG.value,
+            category=category,
+            source=source,
+            confidence=confidence,
+            expires_at=expires_at,
+            agent_id=agent_id,
+        )
+
+        # 添加事件特有字段
+        result["when"] = event_time.isoformat()
+        result["where"] = where
+        result["who"] = participants
+        result["ttl_days"] = ttl_days
+
+        return result
+
+    def search_events(
+        self,
+        query: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        where: Optional[str] = None,
+        who: Optional[str] = None,
+        limit: int = 10,
+        agent_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        搜索事件日志（L2 event_log）
+
+        支持基于时间、地点、人物的过滤。
+
+        Args:
+            query: 搜索查询
+            start_time: 开始时间
+            end_time: 结束时间
+            where: 地点过滤
+            who: 人物过滤
+            limit: 返回数量
+            agent_id: Agent ID
+
+        Returns:
+            事件列表
+        """
+        # 增强查询（包含时空过滤词）
+        enhanced_query = query
+        if where:
+            enhanced_query += f" 地点:{where}"
+        if who:
+            enhanced_query += f" 人物:{who}"
+
+        # 搜索 event_log 层
+        results = self.search_memory(
+            query=enhanced_query,
+            layer=MemoryLayer.EVENT_LOG.value,
+            limit=limit,
+            include_constitution=False,
+            agent_id=agent_id,
+        )
+
+        # TODO: 添加时间范围过滤（需要 Qdrant payload 过滤支持）
+
+        return results
+
+    def promote_event_to_fact(
+        self,
+        event_id: str | UUID,
+        verified_by: str = "caregiver",
+        notes: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        将事件提升为验证事实（L2 → L3）
+
+        当一个事件经过验证，可以提升为长期事实层。
+
+        Args:
+            event_id: 事件 ID
+            verified_by: 验证者
+            notes: 提升备注
+
+        Returns:
+            {"status": "promoted", "new_id": UUID, ...}
+        """
+        event_uuid = event_id if isinstance(event_id, UUID) else UUID(str(event_id))
+
+        # 获取原事件
+        event_data = self.search.get_note(event_uuid)
+        if not event_data:
+            return {"status": "error", "reason": "事件不存在"}
+
+        # 检查是否已提升
+        if event_data.get("layer") == MemoryLayer.VERIFIED_FACT.value:
+            return {"status": "already_fact", "id": event_uuid}
+
+        # 创建新的 verified_fact 记录
+        content = event_data.get("content", "")
+        if notes:
+            content += f" [验证备注: {notes}]"
+
+        new_result = self.add_memory(
+            content=content,
+            layer=MemoryLayer.VERIFIED_FACT.value,
+            category=event_data.get("category"),
+            source="promoted_from_event",
+            confidence=1.0,  # 提升后置信度为 1
+            created_by=verified_by,
+        )
+
+        # 标记原事件为已提升（更新 payload）
+        self.search.update_note(
+            event_uuid,
+            {
+                "promoted_to_fact": True,
+                "promoted_at": datetime.now().isoformat(),
+                "promoted_fact_id": str(new_result["id"]),
+            },
+        )
+
+        return {
+            "status": "promoted",
+            "original_event_id": str(event_uuid),
+            "new_fact_id": str(new_result["id"]),
+            "verified_by": verified_by,
+            "promoted_at": datetime.now().isoformat(),
+        }
 
 
 # 全局单例（支持依赖注入）

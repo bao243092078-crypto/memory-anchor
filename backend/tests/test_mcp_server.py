@@ -18,12 +18,22 @@ class TestMCPTools:
     """测试 MCP 工具定义"""
 
     @pytest.mark.asyncio
-    async def test_list_tools_returns_five_tools(self):
-        """验证有五个工具"""
+    async def test_list_tools_returns_eight_tools(self):
+        """验证有八个工具（五层模型升级后新增 3 个）"""
         tools = await list_tools()
-        assert len(tools) == 5
+        assert len(tools) == 8
         tool_names = {t.name for t in tools}
-        assert tool_names == {"search_memory", "add_memory", "get_constitution", "propose_constitution_change", "sync_to_files"}
+        assert tool_names == {
+            "search_memory",
+            "add_memory",
+            "get_constitution",
+            "propose_constitution_change",
+            "sync_to_files",
+            # 五层模型新增的 L2 工具
+            "log_event",
+            "search_events",
+            "promote_to_fact",
+        }
 
     @pytest.mark.asyncio
     async def test_search_memory_tool_schema(self):
@@ -51,9 +61,13 @@ class TestMCPTools:
         assert "confidence" in schema["properties"]
         assert schema["required"] == ["content"]
 
-        # 验证 layer 不包含 constitution
+        # 验证 layer 不包含 constitution/identity_schema（宪法层禁止通过此工具添加）
         layer_enum = schema["properties"]["layer"]["enum"]
         assert "constitution" not in layer_enum
+        assert "identity_schema" not in layer_enum
+        # 新旧术语都应该支持
+        assert "verified_fact" in layer_enum
+        assert "event_log" in layer_enum
         assert "fact" in layer_enum
         assert "session" in layer_enum
 

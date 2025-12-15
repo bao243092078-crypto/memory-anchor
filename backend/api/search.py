@@ -50,8 +50,9 @@ async def search_notes(
     limit: int = Query(5, ge=1, le=20, description="返回数量限制"),
     layer: Optional[str] = Query(
         None,
-        pattern="^(constitution|fact|session)$",
-        description="过滤记忆层级",
+        # 支持 v1.x (constitution/fact/session) 和 v2.x (identity_schema/verified_fact/event_log) 术语
+        pattern="^(constitution|fact|session|identity_schema|verified_fact|event_log|active_context|operational_knowledge)$",
+        description="过滤记忆层级（支持 v1.x 和 v2.x 术语）",
     ),
     category: Optional[str] = Query(
         None,
@@ -69,14 +70,19 @@ async def search_notes(
     **使用示例**：
     - 搜索所有相关: `GET /api/v1/search?q=吃药`
     - 只搜索人物: `GET /api/v1/search?q=女儿&category=person`
-    - 搜索宪法层: `GET /api/v1/search?q=我是谁&layer=constitution`
+    - 搜索宪法层: `GET /api/v1/search?q=我是谁&layer=constitution` (或 layer=identity_schema)
     """
+    from backend.core.memory_kernel import normalize_layer
+
     service = get_search_service()
+
+    # 规范化层级名称（v1.x → v2.x）
+    normalized_layer = normalize_layer(layer)
 
     results = service.search(
         query=q,
         limit=limit,
-        layer=layer,
+        layer=normalized_layer,
         category=category,
         only_active=only_active,
     )
