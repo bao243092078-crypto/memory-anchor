@@ -222,6 +222,12 @@ def get_memory_service() -> MemoryService:
     return _memory_service
 
 
+def reset_memory_service():
+    """重置记忆服务单例（用于 MCP 启动时重新加载配置）"""
+    global _memory_service
+    _memory_service = None
+
+
 __all__ = [
     "MemoryService",
     "MemoryAddRequest",
@@ -229,4 +235,5 @@ __all__ = [
     "MemoryResult",
     "MemorySource",
     "get_memory_service",
+    "reset_memory_service",
 ]

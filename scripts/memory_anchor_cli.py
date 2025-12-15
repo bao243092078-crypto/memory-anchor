@@ -76,6 +76,12 @@ def cmd_sync(args):
     project_path = Path(args.project or os.getcwd()).resolve()
     memos_dir = project_path / ".memos"
 
+    # 从项目路径提取项目 ID 并设置环境变量
+    project_id = "".join(
+        c for c in project_path.name if c.isalnum() or c in ("_", "-")
+    ) or "default"
+    os.environ["MCP_MEMORY_PROJECT_ID"] = project_id
+
     if args.status:
         # 检查同步状态
         print("📊 同步状态检查")

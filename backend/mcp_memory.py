@@ -666,6 +666,15 @@ async def read_resource(uri: str) -> str:
 
 async def main():
     """启动 MCP Server"""
+    # 重置所有单例以确保使用最新的环境变量（MCP_MEMORY_PROJECT_ID）
+    from backend.config import reset_config
+    from backend.services.search import reset_search_service
+    from backend.services.memory import reset_memory_service
+
+    reset_config()
+    reset_search_service()
+    reset_memory_service()
+
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,

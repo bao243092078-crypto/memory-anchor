@@ -568,5 +568,11 @@ def get_search_service() -> SearchService:
     return _search_service
 
 
+def reset_search_service():
+    """重置搜索服务单例（用于 MCP 启动时重新加载配置）"""
+    global _search_service
+    _search_service = None
+
+
 # 导出
-__all__ = ["SearchService", "get_search_service"]
+__all__ = ["SearchService", "get_search_service", "reset_search_service"]
