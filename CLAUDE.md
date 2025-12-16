@@ -1,8 +1,114 @@
-# Memory Anchor（记忆锚点）项目规则
+# CLAUDE.md
 
-## 项目定位
-为阿尔茨海默症患者及其照护者提供便利贴式记忆辅助系统。
-**核心原则**：极简 > 功能丰富，主动提醒 > 被动记录
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Memory Anchor is an MCP-based persistent memory system for AI assistants. Core metaphor: **treat AI as an Alzheimer's patient—capable but forgetful**. Memory Anchor is the AI's external hippocampus.
+
+**Core principle**: Simplicity > Feature-rich, Proactive reminders > Passive recording
+
+---
+
+## Development Commands
+
+```bash
+# Install dependencies
+uv sync --all-extras
+
+# Run development server (FastAPI HTTP)
+uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+# Run tests
+uv run pytest                                    # All tests
+uv run pytest backend/tests/test_search.py      # Single file
+uv run pytest -k "test_memory_write"            # Pattern match
+uv run pytest -x                                 # Stop on first failure
+
+# Linting
+uv run ruff check backend                        # Check
+uv run ruff check backend --fix                  # Auto-fix
+
+# Type checking
+uv run mypy backend
+
+# CLI entry points
+./ma doctor --project NAME                       # Health check
+./ma init --project NAME                         # Initialize project
+./ma up --project NAME                           # Start MCP service
+uv run memory-anchor serve --project NAME        # Alternative MCP start
+```
+
+## Architecture
+
+```
+backend/
+├── main.py                 # FastAPI HTTP entry point
+├── mcp_memory.py           # MCP Server entry point (stdio)
+├── config.py               # Configuration management (env → yaml → defaults)
+├── core/
+│   ├── memory_kernel.py    # Central memory engine (sync, no async)
+│   └── active_context.py   # L1 working memory (in-process cache)
+├── services/
+│   ├── search.py           # Qdrant vector search (Server/Local modes)
+│   ├── memory.py           # High-level memory service (async wrapper)
+│   ├── constitution.py     # Constitution layer management
+│   └── embedding.py        # FastEmbed text vectorization
+├── models/
+│   ├── note.py             # Memory layer enums, note schemas
+│   └── constitution_change.py  # Change proposal models
+├── api/                    # FastAPI routers
+│   ├── notes.py            # CRUD for notes
+│   ├── search.py           # Search endpoint
+│   ├── memory.py           # Memory operations
+│   └── constitution.py     # Constitution changes
+├── cli/                    # Typer CLI commands
+│   ├── doctor_cmd.py       # Health diagnostics
+│   ├── init_cmd.py         # Project initialization
+│   └── serve_cmd.py        # Server startup
+└── tests/                  # pytest tests with singleton isolation
+```
+
+### Five-Layer Cognitive Memory Model (v2.0)
+
+| Layer | Code | Cognitive Analog | Persistence |
+|-------|------|------------------|-------------|
+| **L0** | `identity_schema` | Self-concept | YAML + Qdrant, 3x approval |
+| **L1** | `active_context` | Working memory | In-process only |
+| **L2** | `event_log` | Episodic memory | Qdrant, TTL optional |
+| **L3** | `verified_fact` | Semantic memory | Qdrant, permanent |
+| **L4** | `operational_knowledge` | Procedural | .ai/operations/ files |
+
+### Key Design Decisions
+
+- **MemoryKernel** (`core/memory_kernel.py`): Sync-only Python, no async. All services wrap it for async contexts. Designed for Codex/script direct calls.
+- **SearchService** (`services/search.py`): Auto-detects Qdrant Server vs Local mode. Server mode preferred for concurrent MCP access.
+- **Configuration** (`config.py`): Priority: env vars → project yaml → global yaml → defaults. `MCP_MEMORY_PROJECT_ID` isolates collections.
+- **Test isolation** (`tests/conftest.py`): Uses `MEMORY_ANCHOR_COLLECTION=memory_anchor_test_notes` and resets all singletons between tests.
+
+### Qdrant Modes
+
+```bash
+# Server mode (recommended for MCP)
+QDRANT_URL=http://localhost:6333 uv run memory-anchor serve
+
+# Local mode (fallback, single-process only)
+# No QDRANT_URL set → uses .qdrant/ local storage
+```
+
+### Frontend Structure
+
+```
+frontend/
+├── caregiver/          # React 18 + Tailwind + Vite (照护者端)
+│   ├── src/
+│   │   ├── api/        # HTTP client to backend
+│   │   ├── components/ # UI components
+│   │   ├── hooks/      # React hooks
+│   │   └── pages/      # Route pages
+│   └── package.json
+└── patient/            # Planned (患者端)
+```
 
 ---
 
