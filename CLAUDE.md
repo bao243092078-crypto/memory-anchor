@@ -8,6 +8,59 @@ Memory Anchor is an MCP-based persistent memory system for AI assistants. Core m
 
 **Core principle**: Simplicity > Feature-rich, Proactive reminders > Passive recording
 
+## Quick Reference
+
+**Common Issues**:
+- **MCP not connecting**: Check Qdrant Server is running (`curl http://127.0.0.1:6333/collections`)
+- **Storage lock error**: Switch to Qdrant Server mode instead of local file mode
+- **Tests failing**: Ensure `MEMORY_ANCHOR_COLLECTION=memory_anchor_test_notes` is set
+- **Empty search results**: Check `MCP_MEMORY_PROJECT_ID` matches your project name
+
+**Key Files**:
+- `backend/config.py` - Configuration management (env → yaml → defaults)
+- `backend/core/memory_kernel.py` - Core memory engine (sync, no async)
+- `backend/services/search.py` - Qdrant integration with auto-detection
+- `backend/mcp_memory.py` - MCP Server entry point
+
+**Environment Variables**:
+- `QDRANT_URL` - Qdrant Server URL (e.g., `http://localhost:6333`)
+- `MCP_MEMORY_PROJECT_ID` - Project isolation (e.g., `阿默斯海默症`)
+- `MEMORY_ANCHOR_COLLECTION` - Override collection name (testing only)
+
+**Common Workflows**:
+
+1. **Adding a new feature**:
+   ```bash
+   # 1. Write the test first (TDD)
+   uv run pytest backend/tests/test_new_feature.py -x
+   # 2. Implement the feature
+   # 3. Run all tests
+   uv run pytest
+   # 4. Check types and lint
+   uv run mypy backend && uv run ruff check backend --fix
+   ```
+
+2. **Debugging MCP issues**:
+   ```bash
+   # 1. Check Qdrant Server
+   curl http://127.0.0.1:6333/collections
+   # 2. Test search directly
+   ./ma status --project 阿默斯海默症
+   # 3. Check logs (MCP uses stderr)
+   # 4. Verify environment variables
+   echo $QDRANT_URL $MCP_MEMORY_PROJECT_ID
+   ```
+
+3. **Running integration tests**:
+   ```bash
+   # Start Qdrant Server first
+   cd ~/.qdrant_storage && ~/bin/qdrant --config-path ./config/config.yaml &
+   # Set test collection to avoid polluting main data
+   export MEMORY_ANCHOR_COLLECTION=memory_anchor_test_notes
+   # Run tests
+   uv run pytest backend/tests/
+   ```
+
 ---
 
 ## Development Commands
@@ -24,19 +77,27 @@ uv run pytest                                    # All tests
 uv run pytest backend/tests/test_search.py      # Single file
 uv run pytest -k "test_memory_write"            # Pattern match
 uv run pytest -x                                 # Stop on first failure
+uv run pytest --cov=backend                      # With coverage
 
-# Linting
+# Linting & formatting
 uv run ruff check backend                        # Check
 uv run ruff check backend --fix                  # Auto-fix
+uv run ruff format backend                       # Format code
 
 # Type checking
 uv run mypy backend
 
-# CLI entry points
+# CLI entry points (prefer ./ma for shorter commands)
 ./ma doctor --project NAME                       # Health check
 ./ma init --project NAME                         # Initialize project
-./ma up --project NAME                           # Start MCP service
-uv run memory-anchor serve --project NAME        # Alternative MCP start
+./ma up --project NAME                           # Start MCP service (stdio mode)
+./ma serve --mode http --port 8000               # Start HTTP API server
+
+# Start Qdrant Server (required for concurrent access)
+cd ~/.qdrant_storage && ~/bin/qdrant --config-path ./config/config.yaml &
+
+# Verify Qdrant is running
+curl http://127.0.0.1:6333/collections
 ```
 
 ## Architecture
@@ -85,6 +146,7 @@ backend/
 - **SearchService** (`services/search.py`): Auto-detects Qdrant Server vs Local mode. Server mode preferred for concurrent MCP access.
 - **Configuration** (`config.py`): Priority: env vars → project yaml → global yaml → defaults. `MCP_MEMORY_PROJECT_ID` isolates collections.
 - **Test isolation** (`tests/conftest.py`): Uses `MEMORY_ANCHOR_COLLECTION=memory_anchor_test_notes` and resets all singletons between tests.
+- **Concurrent access**: Use Qdrant Server mode (not local file mode) when running MCP + HTTP simultaneously to avoid storage lock conflicts.
 
 ### Qdrant Modes
 
@@ -96,18 +158,24 @@ QDRANT_URL=http://localhost:6333 uv run memory-anchor serve
 # No QDRANT_URL set → uses .qdrant/ local storage
 ```
 
+### Testing Strategy
+
+- **Test isolation**: Uses `MEMORY_ANCHOR_COLLECTION=memory_anchor_test_notes` environment variable
+- **Singleton reset**: `conftest.py` resets all singletons (`SearchService`, config) between tests
+- **Qdrant mode**: Tests use local file mode by default, can override to Server mode
+- **Fixtures**: Shared fixtures in `conftest.py` for client, search service, and test data
+- **Coverage**: Run `pytest --cov=backend` to check test coverage
+
 ### Frontend Structure
 
 ```
-frontend/
-├── caregiver/          # React 18 + Tailwind + Vite (照护者端)
-│   ├── src/
-│   │   ├── api/        # HTTP client to backend
-│   │   ├── components/ # UI components
-│   │   ├── hooks/      # React hooks
-│   │   └── pages/      # Route pages
-│   └── package.json
-└── patient/            # Planned (患者端)
+frontend/caregiver/     # React 18 + Vite + Tailwind (照护者端)
+  ├── src/
+  │   ├── api/          # HTTP client to backend
+  │   ├── components/   # UI components
+  │   ├── hooks/        # React hooks
+  │   └── pages/        # Route pages
+  └── package.json
 ```
 
 ---
@@ -262,28 +330,14 @@ Claude 内部执行：
 
 ---
 
-## 技术栈
-- 后端: Python 3.12 + FastAPI + Pydantic
-- 前端: React 18 + Tailwind CSS + PWA
-- 存储: SQLite + Qdrant（.memos/ 已初始化）
-- AI: Claude API（语义提取）+ Edge TTS（语音）
+## Technology Stack
 
-## 目录结构
-```
-.
-├── backend/          # FastAPI 后端
-│   ├── api/         # 路由
-│   ├── models/      # 数据模型
-│   ├── services/    # 业务逻辑
-│   └── tests/       # 测试
-├── frontend/         # React 前端
-│   ├── caregiver/   # 照护者端
-│   └── patient/     # 患者端
-├── docs/            # 文档
-│   ├── SPEC.md      # 产品规格
-│   └── brainstorm.md # 头脑风暴
-└── .memos/          # MOS 数据目录（勿动）
-```
+- **Backend**: Python 3.12 + FastAPI + Pydantic
+- **Frontend**: React 18 + Vite + Tailwind CSS
+- **Storage**: SQLite (constitution changes) + Qdrant (vector search)
+- **Embeddings**: FastEmbed (all-MiniLM-L6-v2)
+- **MCP**: Model Context Protocol for AI integration
+- **CLI**: Typer + Rich for terminal UI
 
 ## 五层认知记忆模型（v2.0）
 
@@ -304,38 +358,30 @@ Claude 内部执行：
 | `fact` | `verified_fact` |
 | `session` | `event_log` + `active_context` |
 
-## 开发约定
-- 每个 PR 必须有测试
-- 患者端 UI 必须通过"祖母测试"（非技术人员可理解）
-- 敏感数据不记录日志
-- 错误信息对患者友好（"稍等一下"而非"500 Error"）
+## Development Conventions
 
-## 快捷命令
-```bash
-uv run dev      # 启动开发服务器 (localhost:8000)
-uv run test     # 运行测试
-uv run lint     # 代码检查
-```
+- **Tests required**: Every PR must include tests
+- **Privacy first**: Never log sensitive memory content
+- **Patient-friendly UI**: "祖母测试" - must be understandable by non-technical users
+- **Error messages**: User-friendly for patients ("稍等一下" not "500 Error")
+- **No destructive defaults**: Never auto-delete data
+- **Protected directories**: Don't manually edit `.memos/` or `.qdrant/`
 
-## 禁止行为
-- 不要在日志中记录便利贴内容（隐私）
-- 不要使用红色警告色（对患者有压力）
-- 不要自动删除任何数据
-- 不要在 .memos/ 目录手动修改文件
+## Code Organization Principles
 
-## API 路由约定
-- `GET /api/notes` - 获取便利贴列表
-- `POST /api/notes` - 创建便利贴
-- `PUT /api/notes/{id}` - 更新便利贴
-- `DELETE /api/notes/{id}` - 删除便利贴（软删除）
-- `GET /api/search?q=` - 语义搜索
-- `POST /api/tts` - 文字转语音
+- **Sync core, async wrappers**: `MemoryKernel` is pure sync Python. FastAPI routes and MCP handlers wrap it with async.
+- **Dependency injection**: Services accept dependencies (e.g., `SearchService` injected into `MemoryKernel`) for testability.
+- **Configuration cascade**: Environment variables override YAML, which overrides defaults. See `backend/config.py`.
+- **Collection isolation**: Each project uses a separate Qdrant collection via `MCP_MEMORY_PROJECT_ID`.
+- **Layer normalization**: Code uses v2.0 layer names (`identity_schema`, `verified_fact`, `event_log`), but accepts v1.x names for backward compatibility.
 
-## 患者端 UI 红线
-- 字体 >= 24px
-- 对比度 >= 4.5:1
-- 单屏显示一条核心信息
-- 无需点击即可看到最重要内容
+## Patient UI Accessibility Requirements
+
+- **Font size**: Minimum 24px
+- **Contrast**: Minimum 4.5:1 ratio
+- **Single focus**: One core message per screen
+- **Zero-click info**: Most important content visible without interaction
+- **Color psychology**: Avoid red (stress-inducing), prefer calming blues/greens
 
 ---
 

@@ -4,9 +4,11 @@ Pytest configuration and fixtures for backend tests.
 This module ensures proper test isolation by:
 1. Using a dedicated test collection name (set before any imports)
 2. Resetting global singletons between tests
+3. Configuring Qdrant local mode for tests
 """
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -20,6 +22,11 @@ def pytest_configure(config):
     """Set up test environment before any tests are collected."""
     # Ensure test collection is set (redundant but safe)
     os.environ["MEMORY_ANCHOR_COLLECTION"] = TEST_COLLECTION_NAME
+
+    # Clear QDRANT_URL to force local mode for all tests
+    # This prevents accidental connections to Qdrant Server
+    if "QDRANT_URL" in os.environ:
+        del os.environ["QDRANT_URL"]
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -41,6 +48,48 @@ def cleanup_test_collection():
         pass
 
 
+@pytest.fixture(scope="session")
+def test_qdrant_path(tmp_path_factory):
+    """Provide a session-wide temporary Qdrant path for all tests."""
+    return str(tmp_path_factory.mktemp("qdrant"))
+
+
+@pytest.fixture(autouse=True)
+def configure_test_qdrant(test_qdrant_path, monkeypatch):
+    """Configure Qdrant local mode for tests by monkeypatching SearchService.
+
+    This ensures all tests use local Qdrant storage instead of requiring
+    a Qdrant server or QDRANT_URL environment variable.
+    """
+    # Clear QDRANT_URL at test level (double insurance)
+    monkeypatch.delenv("QDRANT_URL", raising=False)
+
+    from backend.services import search as search_module
+
+    # Store original SearchService class
+    OriginalSearchService = search_module.SearchService
+
+    # Create wrapper that injects path parameter
+    class TestSearchService(OriginalSearchService):
+        def __init__(self, path=None, url=None, prefer_server=True):
+            # If no path or url provided, use test path for local mode
+            if path is None and url is None:
+                path = test_qdrant_path
+            super().__init__(path=path, url=url, prefer_server=prefer_server)
+
+    # Monkeypatch the SearchService class
+    monkeypatch.setattr(search_module, "SearchService", TestSearchService)
+
+    # Also reset config to ensure clean state
+    from backend.config import reset_config
+    reset_config()
+
+    yield
+
+    # Restore original SearchService (though reset_singletons handles this)
+    monkeypatch.setattr(search_module, "SearchService", OriginalSearchService)
+
+
 @pytest.fixture(autouse=True)
 def reset_singletons():
     """Reset all global singletons before each test to ensure fresh instances."""
@@ -55,6 +104,13 @@ def reset_singletons():
 
 def _reset_all_singletons():
     """Reset all global singleton instances."""
+    # Reset Config (P2 fix: ensure clean config state)
+    try:
+        from backend.config import reset_config
+        reset_config()
+    except (ImportError, AttributeError):
+        pass
+
     # Reset MemoryKernel
     try:
         import backend.core.memory_kernel as mk

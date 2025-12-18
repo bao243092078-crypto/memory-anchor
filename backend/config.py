@@ -14,6 +14,7 @@ Memory Anchor Configuration - 配置管理模块
     print(config.qdrant_path)
 """
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -21,8 +22,16 @@ from typing import Optional
 
 import yaml
 
+logger = logging.getLogger(__name__)
+
 # 默认全局配置目录
 DEFAULT_GLOBAL_CONFIG_DIR = Path.home() / ".memory-anchor"
+
+
+class ConfigLoadError(Exception):
+    """配置加载错误"""
+
+    pass
 DEFAULT_PROJECT_CONFIG_DIR = Path(".memory-anchor")
 
 
@@ -94,19 +103,53 @@ class MemoryAnchorConfig:
 
 
 def _load_yaml_config(path: Path) -> dict:
-    """加载 YAML 配置文件"""
+    """
+    加载 YAML 配置文件。
+
+    Args:
+        path: 配置文件路径
+
+    Returns:
+        配置字典，如果文件不存在则返回空字典
+
+    Raises:
+        ConfigLoadError: YAML 解析失败或其他错误
+    """
     if not path.exists():
+        logger.debug(f"Config file not found: {path}")
         return {}
+
     try:
         with open(path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    except Exception:
+            content = yaml.safe_load(f)
+            return content or {}
+    except FileNotFoundError:
+        # 文件在 exists() 检查后被删除（罕见情况）
+        logger.debug(f"Config file disappeared: {path}")
         return {}
+    except yaml.YAMLError as e:
+        logger.error(f"Invalid YAML in {path}: {e}")
+        raise ConfigLoadError(f"Invalid YAML in {path}: {e}") from e
+    except Exception as e:
+        logger.error(f"Failed to load config from {path}: {e}")
+        raise ConfigLoadError(f"Failed to load config from {path}: {e}") from e
 
 
 def _load_constitution_yaml(path: Path) -> list[ConstitutionItem]:
-    """从 constitution.yaml 加载宪法层条目"""
+    """
+    从 constitution.yaml 加载宪法层条目。
+
+    Args:
+        path: constitution.yaml 文件路径
+
+    Returns:
+        宪法层条目列表，如果文件不存在则返回空列表
+
+    Raises:
+        ConfigLoadError: YAML 解析失败或其他错误
+    """
     if not path.exists():
+        logger.debug(f"Constitution file not found: {path}")
         return []
 
     try:
@@ -123,8 +166,16 @@ def _load_constitution_yaml(path: Path) -> list[ConstitutionItem]:
             for i, item in enumerate(items)
             if item.get("content")
         ]
-    except Exception:
+    except FileNotFoundError:
+        # 文件在 exists() 检查后被删除（罕见情况）
+        logger.debug(f"Constitution file disappeared: {path}")
         return []
+    except yaml.YAMLError as e:
+        logger.error(f"Invalid YAML in {path}: {e}")
+        raise ConfigLoadError(f"Invalid YAML in {path}: {e}") from e
+    except Exception as e:
+        logger.error(f"Failed to load constitution from {path}: {e}")
+        raise ConfigLoadError(f"Failed to load constitution from {path}: {e}") from e
 
 
 def load_config(

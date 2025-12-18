@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.api.constitution import router as constitution_router
 from backend.api.memory import router as memory_router
 from backend.api.notes import router as notes_router
+from backend.api.pending import router as pending_router
 from backend.api.search import router as search_router
 
 app = FastAPI(
@@ -35,6 +36,7 @@ app.include_router(notes_router, prefix="/api/v1")
 app.include_router(search_router)  # search 路由已有 /api/v1 前缀
 app.include_router(memory_router)  # memory 路由已有 /api/v1/memory 前缀
 app.include_router(constitution_router, prefix="/api/v1")  # 宪法层变更路由
+app.include_router(pending_router)  # pending 路由已有 /api/v1/pending 前缀
 
 
 @app.get("/")

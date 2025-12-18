@@ -46,14 +46,25 @@ class MemoryLayer(str, Enum):
         Raises:
             ValueError: 如果值无效
         """
+        if not value:
+            raise ValueError("Invalid memory layer: value cannot be None or empty")
+
         # v1.x → v2.x 术语映射
         aliases = {
             "constitution": "identity_schema",
             "fact": "verified_fact",
             "session": "event_log",
         }
-        normalized = aliases.get(value.lower(), value.lower())
-        return cls(normalized)
+        # 去除前后空格并转小写
+        normalized = aliases.get(value.strip().lower(), value.strip().lower())
+        try:
+            return cls(normalized)
+        except ValueError:
+            raise ValueError(
+                f"Invalid memory layer: '{value}'. "
+                f"Valid values: identity_schema, active_context, event_log, verified_fact, operational_knowledge "
+                f"(or v1.x aliases: constitution, fact, session)"
+            )
 
 
 class NoteCategory(str, Enum):

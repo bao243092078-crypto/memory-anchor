@@ -16,22 +16,28 @@ Search service for Memory Anchor.
     docker run -d -p 6333:6333 -v $(pwd)/.qdrant_data:/qdrant/storage:z --name qdrant qdrant/qdrant
     export QDRANT_URL=http://localhost:6333
 """
+import logging
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
-import httpx
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    IsNullCondition,
     MatchValue,
+    PayloadField,
     PointStruct,
+    Range,
     VectorParams,
 )
 
 from backend.config import get_config
 from backend.services.embedding import embed_batch, embed_text
+
+logger = logging.getLogger(__name__)
 
 
 def _get_collection_name() -> str:
@@ -65,51 +71,8 @@ COLLECTION_NAME = _get_collection_name()
 VECTOR_SIZE = get_config().vector_size
 
 
-# 进程内缓存：避免本地 Qdrant 重复打开同一路径导致文件锁冲突
-_LOCAL_CLIENT_CACHE: dict[str, QdrantClient] = {}
-
-
-def _get_qdrant_client(
-    local_path: Optional[str] = None,
-    server_url: Optional[str] = None,
-    prefer_server: bool = True,
-) -> tuple[QdrantClient, str]:
-    """
-    获取 Qdrant 客户端，优先尝试 Server 模式。
-
-    Args:
-        local_path: 本地存储路径（None 则使用配置）
-        server_url: Qdrant Server URL（None 则使用配置）
-        prefer_server: 是否优先尝试 Server 模式
-
-    Returns:
-        (client, mode) - client 实例和模式字符串 ("server" 或 "local")
-    """
-    config = get_config()
-
-    # 使用配置中的值作为默认
-    actual_local_path = local_path or str(config.qdrant_path)
-    # 仅当用户显式配置 QDRANT_URL / config.yaml 时才尝试 Server 模式，避免“隐式连上”其他进程
-    actual_server_url = server_url or config.qdrant_url
-
-    if prefer_server and actual_server_url:
-        try:
-            # 快速探测 Qdrant Server 是否可用
-            with httpx.Client(timeout=0.5) as http_client:
-                resp = http_client.get(f"{actual_server_url}/readyz")
-                if resp.status_code == 200:
-                    return QdrantClient(url=actual_server_url), "server"
-        except Exception:
-            pass
-
-    # 降级到本地模式
-    cached = _LOCAL_CLIENT_CACHE.get(actual_local_path)
-    if cached is not None:
-        return cached, "local"
-
-    client = QdrantClient(path=actual_local_path)
-    _LOCAL_CLIENT_CACHE[actual_local_path] = client
-    return client, "local"
+# Bug 5 修复：移除自动降级逻辑，改为 fail-fast
+# 生产环境必须明确配置 QDRANT_URL，不再自动降级到本地模式
 
 
 class SearchService:
@@ -119,10 +82,10 @@ class SearchService:
         self,
         path: Optional[str] = None,
         url: Optional[str] = None,
-        prefer_server: bool = True,
+        prefer_server: bool = True,  # 已废弃，保留向后兼容
     ):
         """
-        初始化搜索服务。
+        初始化搜索服务（Fail-fast 模式）。
 
         配置优先级：
         1. 构造函数参数（显式传入）
@@ -131,26 +94,57 @@ class SearchService:
         4. 代码默认值
 
         Args:
-            path: Qdrant 本地数据存储路径（None 则使用配置）
-            url: Qdrant Server URL（显式指定则只用 Server 模式）
-            prefer_server: 是否优先尝试 Server 模式
+            path: Qdrant 本地数据存储路径（仅测试模式使用）
+            url: Qdrant Server URL（生产环境必须提供）
+            prefer_server: 已废弃参数，保留向后兼容
+
+        Raises:
+            RuntimeError: 连接 Qdrant Server 失败
+            ValueError: 生产环境未配置 QDRANT_URL
         """
         self._config = get_config()
         self.collection_name = self._config.collection_name
         self.vector_size = self._config.vector_size
 
-        if url:
-            # 显式指定 URL，直接使用 Server 模式
-            self.client = QdrantClient(url=url)
-            self.mode = "server"
-        else:
-            # 自动检测（使用配置或参数）
-            self.client, self.mode = _get_qdrant_client(
-                local_path=path,
-                server_url=self._config.qdrant_url,
-                prefer_server=prefer_server,
+        # 确定使用的 URL
+        actual_url = url or self._config.qdrant_url
+
+        try:
+            if actual_url:
+                # Server 模式（生产环境标准）
+                self.client = QdrantClient(url=actual_url)
+                self.mode = "server"
+                logger.info(f"Connected to Qdrant Server: {actual_url}")
+            elif path:
+                # Local 模式（仅用于测试）
+                logger.warning(
+                    "Using Qdrant local mode. This is for testing only. "
+                    "Production should set QDRANT_URL."
+                )
+                self.client = QdrantClient(path=path)
+                self.mode = "local"
+            else:
+                # 未配置 - 失败
+                raise ValueError(
+                    "QDRANT_URL must be set for production use. "
+                    "Set environment variable QDRANT_URL or pass 'url' parameter."
+                )
+
+            # 确保 collection 存在（这会触发实际的网络连接）
+            self._ensure_collection()
+        except ValueError:
+            # 配置错误直接抛出
+            raise
+        except Exception as e:
+            # 连接错误统一处理
+            error_msg = (
+                f"Qdrant Server connection failed: {e}. "
+                f"Please ensure Qdrant Server is running"
             )
-        self._ensure_collection()
+            if actual_url:
+                error_msg += f" at {actual_url}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
 
     def _ensure_collection(self):
         """确保 collection 存在"""
@@ -216,8 +210,17 @@ class SearchService:
             payload["agent_id"] = agent_id
         if created_at is not None:
             payload["created_at"] = created_at
+        # Always add expires_at field (None = never expires)
         if expires_at is not None:
-            payload["expires_at"] = expires_at
+            # Convert ISO 8601 string to Unix timestamp for range queries
+            try:
+                dt = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                payload["expires_at"] = dt.timestamp()
+            except (ValueError, AttributeError):
+                # If conversion fails, store as-is (for backward compatibility)
+                payload["expires_at"] = expires_at
+        else:
+            payload["expires_at"] = None
         if priority is not None:
             payload["priority"] = priority
         if created_by is not None:
@@ -266,11 +269,11 @@ class SearchService:
                     "layer": n["layer"],
                     "category": n.get("category"),
                     "is_active": n.get("is_active", True),
+                    "expires_at": n.get("expires_at"),  # Always store (None if not provided)
                     **({"confidence": n["confidence"]} if n.get("confidence") is not None else {}),
                     **({"source": n["source"]} if n.get("source") is not None else {}),
                     **({"agent_id": n["agent_id"]} if n.get("agent_id") is not None else {}),
                     **({"created_at": n["created_at"]} if n.get("created_at") is not None else {}),
-                    **({"expires_at": n["expires_at"]} if n.get("expires_at") is not None else {}),
                 },
             )
             for n, vec in zip(notes, vectors)
@@ -298,15 +301,18 @@ class SearchService:
         Args:
             query: 搜索查询
             limit: 返回数量限制
-            layer: 过滤记忆层级
+            layer: 过滤记忆层级（可以是字符串或 MemoryLayer 枚举）
             category: 过滤类别
             only_active: 是否只返回激活的
-            agent_id: 会话层隔离用 agent_id（仅当 layer=session 时生效）
+            agent_id: 会话层隔离用 agent_id（仅当 layer=event_log 时生效）
 
         Returns:
             搜索结果列表，包含 id, content, score, layer, category
         """
         query_vector = embed_text(query)
+
+        # 转换 MemoryLayer 枚举为字符串（如果需要）
+        layer_str = str(layer.value) if hasattr(layer, 'value') else layer
 
         # 构建过滤条件
         must_conditions = []
@@ -316,9 +322,9 @@ class SearchService:
                 FieldCondition(key="is_active", match=MatchValue(value=True))
             )
 
-        if layer:
+        if layer_str:
             must_conditions.append(
-                FieldCondition(key="layer", match=MatchValue(value=layer))
+                FieldCondition(key="layer", match=MatchValue(value=layer_str))
             )
 
         if category:
@@ -326,11 +332,24 @@ class SearchService:
                 FieldCondition(key="category", match=MatchValue(value=category))
             )
 
-        # 会话层隔离：仅在显式查询 session 层时启用
-        if agent_id and layer == "session":
+        # 会话层隔离：仅在显式查询 event_log 层时启用
+        if agent_id and layer_str == "event_log":
             must_conditions.append(
                 FieldCondition(key="agent_id", match=MatchValue(value=agent_id))
             )
+
+        # TTL 过期过滤：过滤掉已过期的记忆
+        current_timestamp = datetime.now(timezone.utc).timestamp()
+        must_conditions.append(
+            Filter(
+                should=[
+                    # expires_at 为 None（永不过期）
+                    IsNullCondition(is_null=PayloadField(key="expires_at")),
+                    # 或 expires_at >= 当前时间（未过期）
+                    FieldCondition(key="expires_at", range=Range(gte=current_timestamp)),
+                ]
+            )
+        )
 
         query_filter = Filter(must=must_conditions) if must_conditions else None
 
@@ -400,6 +419,19 @@ class SearchService:
             must_conditions.append(
                 FieldCondition(key="category", match=MatchValue(value=category))
             )
+
+        # TTL 过期过滤：过滤掉已过期的记忆
+        current_timestamp = datetime.now(timezone.utc).timestamp()
+        must_conditions.append(
+            Filter(
+                should=[
+                    # expires_at 为 None（永不过期）
+                    IsNullCondition(is_null=PayloadField(key="expires_at")),
+                    # 或 expires_at >= 当前时间（未过期）
+                    FieldCondition(key="expires_at", range=Range(gte=current_timestamp)),
+                ]
+            )
+        )
 
         scroll_filter = Filter(must=must_conditions) if must_conditions else None
         records, _ = self.client.scroll(

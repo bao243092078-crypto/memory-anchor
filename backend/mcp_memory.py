@@ -486,7 +486,7 @@ async def _handle_search_memory(
 
     request = MemorySearchRequest(
         query=query,
-        layer=MemoryLayer(layer) if layer else None,
+        layer=MemoryLayer.from_string(layer) if layer else None,
         category=NoteCategory(category) if category else None,
         include_constitution=True,
         limit=limit,
@@ -532,7 +532,7 @@ async def _handle_add_memory(
     try:
         request = MemoryAddRequest(
             content=content,
-            layer=MemoryLayer(layer),
+            layer=MemoryLayer.from_string(layer),
             category=NoteCategory(category) if category else None,
             source=MemorySource.AI_EXTRACTION,  # MCP 调用视为 AI 提取
             confidence=confidence,

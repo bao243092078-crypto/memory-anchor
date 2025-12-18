@@ -17,23 +17,29 @@ import pytest
 
 sys.path.insert(0, "/Users/baobao/projects/阿默斯海默症")
 
-from backend.services.search import SearchService
-
 
 class TestRetrievalQuality:
     """检索质量测试套件"""
 
     @pytest.fixture(autouse=True)
-    def setup(self):
-        """每个测试前初始化"""
-        self.search = SearchService()
+    def setup(self, test_qdrant_path):
+        """每个测试前初始化
+
+        显式使用 test_qdrant_path 确保测试隔离。
+        """
+        from backend.services.search import SearchService
+        self.search = SearchService(path=str(test_qdrant_path))
         # 清理测试数据
         self._cleanup_test_data()
         # 添加测试数据
         self._add_test_data()
         yield
-        # 测试后清理
+        # 测试后清理并关闭客户端
         self._cleanup_test_data()
+        # 关闭 Qdrant 客户端释放锁
+        if hasattr(self.search.client, 'close'):
+            self.search.client.close()
+        del self.search
 
     def _cleanup_test_data(self):
         """清理测试数据"""
@@ -223,9 +229,15 @@ class TestSearchServiceBasic:
     """搜索服务基础功能测试"""
 
     @pytest.fixture(autouse=True)
-    def setup(self):
-        self.search = SearchService()
+    def setup(self, test_qdrant_path):
+        """显式使用 test_qdrant_path 确保测试隔离"""
+        from backend.services.search import SearchService
+        self.search = SearchService(path=str(test_qdrant_path))
         yield
+        # 关闭 Qdrant 客户端释放锁
+        if hasattr(self.search.client, 'close'):
+            self.search.client.close()
+        del self.search
 
     def test_connection_mode(self):
         """测试连接模式"""

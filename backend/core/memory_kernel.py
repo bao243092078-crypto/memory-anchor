@@ -18,6 +18,7 @@ MemoryKernel - Memory Anchor 核心引擎 (v2.0)
 4. 线程安全 - 使用 Qdrant Server 模式，支持并发
 """
 
+import threading
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -28,6 +29,7 @@ from backend.core.active_context import ActiveContext
 
 # 导入现有的 models 和 services
 from backend.models.note import MemoryLayer, NoteCategory
+from backend.services.pending_memory import PendingMemoryService
 
 
 class MemorySource(str, Enum):
@@ -292,7 +294,7 @@ class MemoryKernel:
         created_at = datetime.now().isoformat()
         created_by_value = created_by or source
 
-        # 索引到向量数据库
+        # 索引到向量数据库或存入待审批队列
         if not needs_approval:
             self.search.index_note(
                 note_id=note_id,
@@ -304,6 +306,21 @@ class MemoryKernel:
                 source=source,
                 agent_id=agent_id if layer == MemoryLayer.EVENT_LOG.value else None,
                 created_at=created_at,
+                expires_at=expires_at.isoformat() if expires_at else None,
+                priority=priority,
+                created_by=created_by_value,
+            )
+        else:
+            # 存入待审批队列（SQLite）
+            pending_service = PendingMemoryService()
+            pending_service.add_pending(
+                note_id=note_id,
+                content=content,
+                layer=layer,
+                category=category,
+                confidence=confidence,
+                source=source,
+                agent_id=agent_id if layer == MemoryLayer.EVENT_LOG.value else None,
                 expires_at=expires_at.isoformat() if expires_at else None,
                 priority=priority,
                 created_by=created_by_value,
@@ -650,13 +667,19 @@ class MemoryKernel:
         }
 
 
-# 全局单例（支持依赖注入）
+# 全局单例（支持依赖注入）+ 线程安全锁
 _kernel_instance: Optional[MemoryKernel] = None
+_kernel_lock = threading.Lock()
 
 
 def get_memory_kernel(search_service=None, note_repo=None) -> MemoryKernel:
     """
-    获取 MemoryKernel 单例
+    获取 MemoryKernel 单例（线程安全）
+
+    使用 double-checked locking 模式：
+    1. 第一次检查（无锁）- 快速路径，避免已初始化时的锁开销
+    2. 获取锁
+    3. 第二次检查（有锁）- 防止并发初始化
 
     Args:
         search_service: 搜索服务（可选，延迟注入）
@@ -666,14 +689,23 @@ def get_memory_kernel(search_service=None, note_repo=None) -> MemoryKernel:
         MemoryKernel 实例
     """
     global _kernel_instance
-    if _kernel_instance is None:
-        if search_service is None:
-            # 延迟导入，避免循环引用
-            from backend.services.search import get_search_service
-            search_service = get_search_service()
 
-        _kernel_instance = MemoryKernel(search_service, note_repo)
-    return _kernel_instance
+    # 第一次检查（无锁）- 快速路径
+    if _kernel_instance is not None:
+        return _kernel_instance
+
+    # 获取锁并再次检查
+    with _kernel_lock:
+        # 第二次检查（有锁）- 防止并发初始化
+        if _kernel_instance is None:
+            if search_service is None:
+                # 延迟导入，避免循环引用
+                from backend.services.search import get_search_service
+                search_service = get_search_service()
+
+            _kernel_instance = MemoryKernel(search_service, note_repo)
+
+        return _kernel_instance
 
 
 __all__ = [
