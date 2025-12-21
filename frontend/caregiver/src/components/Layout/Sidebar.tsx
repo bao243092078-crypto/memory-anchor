@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, StickyNote, Shield, Clock, Search } from 'lucide-react';
+import { Home, StickyNote, Shield, Clock, Search, CheckSquare } from 'lucide-react';
 import clsx from 'clsx';
 
 const navItems = [
@@ -7,6 +7,7 @@ const navItems = [
   { path: '/notes', label: '记忆条目', icon: StickyNote },
   { path: '/constitution', label: '核心身份', icon: Shield },
   { path: '/pending', label: '待审批', icon: Clock },
+  { path: '/checklist', label: '清单', icon: CheckSquare },
   { path: '/search', label: '语义搜索', icon: Search },
 ];
 

@@ -6,6 +6,7 @@ import { NotesPage } from './pages/Notes';
 import { SearchPage } from './pages/Search';
 import { ConstitutionPage } from './pages/Constitution';
 import { PendingPage } from './pages/Pending';
+import { ChecklistPage } from './pages/Checklist';
 
 // 创建 QueryClient 实例
 const queryClient = new QueryClient({
@@ -29,6 +30,7 @@ function App() {
             <Route path="search" element={<SearchPage />} />
             <Route path="constitution" element={<ConstitutionPage />} />
             <Route path="pending" element={<PendingPage />} />
+            <Route path="checklist" element={<ChecklistPage />} />
             {/* 未匹配路由重定向到首页 */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
