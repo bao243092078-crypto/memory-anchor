@@ -20,7 +20,6 @@ Checkpoint Hook - 清单革命上下文保护机制
 import argparse
 import json
 import os
-import re
 import socket
 import subprocess
 import sys

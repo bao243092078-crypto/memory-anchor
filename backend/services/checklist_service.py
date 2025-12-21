@@ -148,7 +148,7 @@ class ChecklistService:
                     )
                 ],
             )
-        except Exception as e:
+        except (ConnectionError, OSError) as e:
             # MVP: 如果 Qdrant 不可用，静默失败但记录日志
             logger.warning("Failed to store checklist item: %s", e)
 
@@ -169,7 +169,7 @@ class ChecklistService:
                         distance=Distance.COSINE,
                     ),
                 )
-        except Exception as e:
+        except (ConnectionError, OSError) as e:
             logger.warning("Failed to create collection: %s", e)
 
     def get_briefing(self, request: ChecklistBriefingRequest) -> str:
@@ -262,7 +262,7 @@ class ChecklistService:
             items.sort(key=lambda x: x.priority.value)
             return items
 
-        except Exception as e:
+        except (ConnectionError, OSError) as e:
             logger.warning("Failed to list checklist items: %s", e)
             return []
 
@@ -344,6 +344,7 @@ class ChecklistService:
     def _mark_completed_by_short_id(self, project_id: str, short_id: str) -> bool:
         """根据短 ID 标记清单项完成"""
         try:
+            from qdrant_client.http.exceptions import UnexpectedResponse
             from qdrant_client.models import FieldCondition, Filter, MatchValue
 
             collection = self._get_collection_name(project_id)
@@ -358,17 +359,29 @@ class ChecklistService:
                 with_payload=True,
             )
 
-            for point in results[0]:
-                payload = point.payload or {}
-                item_id = payload.get("id", "")
-                if item_id.startswith(short_id):
-                    # 更新状态
-                    self._update_item_status(collection, item_id, ChecklistStatus.DONE)
-                    return True
+            # 查找所有匹配的项
+            matches = [
+                p for p in results[0]
+                if (p.payload or {}).get("id", "").startswith(short_id)
+            ]
 
-            return False
+            if not matches:
+                return False
 
-        except Exception as e:
+            # 碰撞警告：短 ID 可能匹配多个项
+            if len(matches) > 1:
+                logger.warning(
+                    "Short ID %s matches %d items, marking first one",
+                    short_id, len(matches)
+                )
+
+            # 标记第一个匹配项为完成
+            first_match = matches[0]
+            item_id = (first_match.payload or {}).get("id", "")
+            self._update_item_status(collection, item_id, ChecklistStatus.DONE)
+            return True
+
+        except (UnexpectedResponse, ConnectionError, OSError) as e:
             logger.warning("Failed to mark item completed: %s", e)
             return False
 
@@ -389,7 +402,7 @@ class ChecklistService:
                 },
                 points=[item_id],
             )
-        except Exception as e:
+        except (ConnectionError, OSError) as e:
             logger.warning("Failed to update item status: %s", e)
 
     def update_item(
@@ -447,7 +460,7 @@ class ChecklistService:
 
             return self._payload_to_item(payload)
 
-        except Exception as e:
+        except (ConnectionError, OSError) as e:
             logger.warning("Failed to update checklist item: %s", e)
             return None
 
