@@ -33,11 +33,19 @@ from mcp.types import (
     Tool,
 )
 
+from backend.models.checklist import (
+    ChecklistBriefingRequest,
+    ChecklistItemCreate,
+    ChecklistPriority,
+    ChecklistScope,
+    PlanSyncRequest,
+)
 from backend.models.constitution_change import (
     ChangeType,
     ConstitutionProposeRequest,
 )
 from backend.models.note import MemoryLayer, NoteCategory
+from backend.services.checklist_service import get_checklist_service
 from backend.services.constitution import get_constitution_service
 from backend.services.memory import (
     MemoryAddRequest,
@@ -446,6 +454,157 @@ async def list_tools() -> list[Tool]:
                 "required": ["event_id"],
             },
         ),
+        # ===== Checklist 工具（清单革命 - 与 Plan skill 协同）=====
+        Tool(
+            name="get_checklist_briefing",
+            description="""获取清单简报（会话开始时调用）。
+
+**核心理念**（来自《清单革命》+ 三方 AI 头脑风暴）：
+- Checklist = 战略层（跨会话持久）
+- Plan skill = 战术层（单次任务）
+- 通过 (ma:xxx) ID 机制连接两者
+
+**何时调用**：
+- SessionStart 时获取待办清单
+- 上下文压缩后恢复工作状态
+- 用户说"我在做什么来着？"
+
+**返回格式**：
+Markdown 格式的清单简报，按优先级分组，包含 (ma:xxx) 引用 ID。
+
+**与 Plan skill 的关系**：
+- 先调用 get_checklist_briefing 获取战略约束
+- 再使用 Plan skill 生成当前任务的具体步骤
+- 完成后调用 sync_plan_to_checklist 同步状态""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_id": {
+                        "type": "string",
+                        "description": "项目 ID",
+                    },
+                    "scope": {
+                        "type": "string",
+                        "enum": ["project", "repo", "global"],
+                        "description": "作用域过滤（可选）",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "default": 12,
+                        "minimum": 1,
+                        "maximum": 50,
+                        "description": "返回数量限制",
+                    },
+                    "include_ids": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "是否包含 (ma:xxx) ID（供 Plan skill 引用）",
+                    },
+                },
+                "required": ["project_id"],
+            },
+        ),
+        Tool(
+            name="sync_plan_to_checklist",
+            description="""从 Plan 同步清单状态（SessionEnd 时调用）。
+
+**解析 plan.md 内容**：
+1. 找到 [x] 的项目，如果有 (ma:xxx) 引用则标记对应清单项完成
+2. 找到 @persist 标签的项目，创建新的清单项
+3. 返回同步结果
+
+**何时调用**：
+- SessionEnd 时同步 Plan 执行结果
+- 用户说"存进度"、"同步清单"
+
+**示例 plan.md 内容**：
+```
+- [x] 修复 QDRANT_URL 问题 (ma:abc12345)
+- [ ] 实现 ChecklistService @persist
+- [x] 添加 MCP 工具 (ma:def67890)
+```
+
+**同步结果**：
+- (ma:abc12345) 和 (ma:def67890) 标记为完成
+- "实现 ChecklistService" 创建为新清单项""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_id": {
+                        "type": "string",
+                        "description": "项目 ID",
+                    },
+                    "session_id": {
+                        "type": "string",
+                        "description": "会话 ID（用于标记来源）",
+                    },
+                    "plan_markdown": {
+                        "type": "string",
+                        "description": "plan.md 内容",
+                    },
+                },
+                "required": ["project_id", "session_id", "plan_markdown"],
+            },
+        ),
+        Tool(
+            name="create_checklist_item",
+            description="""创建清单项。
+
+用于手动创建跨会话持久的清单项。
+
+**与 add_memory 的区别**：
+- add_memory: 添加记忆（被动存储）
+- create_checklist_item: 创建待办（主动跟踪）
+
+**优先级**：
+- 1 (critical): 🔴 紧急
+- 2 (high): 🟠 高优
+- 3 (normal): 🟡 普通
+- 4 (low): 🟢 低优
+- 5 (backlog): ⚪ 待定
+
+**示例**：
+- 创建一个高优先级的 Bug 修复任务
+- 创建一个普通的功能开发任务""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_id": {
+                        "type": "string",
+                        "description": "项目 ID",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "清单内容",
+                        "minLength": 1,
+                        "maxLength": 500,
+                    },
+                    "priority": {
+                        "type": "integer",
+                        "enum": [1, 2, 3, 4, 5],
+                        "default": 3,
+                        "description": "优先级（1=紧急, 2=高, 3=普通, 4=低, 5=待定）",
+                    },
+                    "scope": {
+                        "type": "string",
+                        "enum": ["project", "repo", "global"],
+                        "default": "project",
+                        "description": "作用域",
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "标签列表",
+                    },
+                    "ttl_days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "存活天数（可选）",
+                    },
+                },
+                "required": ["project_id", "content"],
+            },
+        ),
     ]
 
 
@@ -471,6 +630,13 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
         return await _handle_search_events(arguments)
     elif name == "promote_to_fact":
         return await _handle_promote_to_fact(arguments)
+    # ===== Checklist 工具（清单革命）=====
+    elif name == "get_checklist_briefing":
+        return await _handle_get_checklist_briefing(arguments)
+    elif name == "sync_plan_to_checklist":
+        return await _handle_sync_plan_to_checklist(arguments)
+    elif name == "create_checklist_item":
+        return await _handle_create_checklist_item(arguments)
     else:
         return [TextContent(type="text", text=f"未知工具: {name}")]
 
@@ -762,7 +928,7 @@ async def _handle_log_event(arguments: dict) -> Sequence[TextContent]:
 
         # 格式化输出
         output = "✅ 事件已记录到情景记忆（L2 event_log）\n\n"
-        output += f"📋 事件详情：\n"
+        output += "📋 事件详情：\n"
         output += f"- ID: {result.get('id', 'N/A')}\n"
         output += f"- 内容: {content}\n"
         if result.get("when"):
@@ -895,7 +1061,7 @@ async def _handle_promote_to_fact(arguments: dict) -> Sequence[TextContent]:
 
         # 格式化输出
         output = "✅ 事件已提升为验证事实（L2 → L3）\n\n"
-        output += f"📋 提升详情：\n"
+        output += "📋 提升详情：\n"
         output += f"- 原事件 ID: {event_id}\n"
         output += f"- 新事实 ID: {result.get('fact_id', 'N/A')}\n"
         output += f"- 验证者: {verified_by}\n"
@@ -913,6 +1079,144 @@ async def _handle_promote_to_fact(arguments: dict) -> Sequence[TextContent]:
         return [TextContent(type="text", text=f"❌ 错误：{str(e)}")]
     except Exception as e:
         return [TextContent(type="text", text=f"❌ 提升事件失败: {str(e)}")]
+
+
+# ===== Checklist 处理函数（清单革命）=====
+
+
+async def _handle_get_checklist_briefing(arguments: dict) -> Sequence[TextContent]:
+    """处理获取清单简报请求"""
+    project_id = arguments.get("project_id", "")
+    scope_str = arguments.get("scope")
+    limit = arguments.get("limit", 12)
+    include_ids = arguments.get("include_ids", True)
+
+    if not project_id:
+        return [TextContent(type="text", text="❌ 错误：project_id 是必填项")]
+
+    try:
+        scope = ChecklistScope(scope_str) if scope_str else None
+
+        request = ChecklistBriefingRequest(
+            project_id=project_id,
+            scope=scope,
+            limit=limit,
+            include_ids=include_ids,
+        )
+
+        service = get_checklist_service()
+        briefing = service.get_briefing(request)
+
+        return [TextContent(type="text", text=briefing)]
+
+    except Exception as e:
+        return [TextContent(type="text", text=f"❌ 获取清单简报失败: {str(e)}")]
+
+
+async def _handle_sync_plan_to_checklist(arguments: dict) -> Sequence[TextContent]:
+    """处理 Plan 同步请求"""
+    project_id = arguments.get("project_id", "")
+    session_id = arguments.get("session_id", "")
+    plan_markdown = arguments.get("plan_markdown", "")
+
+    if not project_id:
+        return [TextContent(type="text", text="❌ 错误：project_id 是必填项")]
+    if not session_id:
+        return [TextContent(type="text", text="❌ 错误：session_id 是必填项")]
+    if not plan_markdown:
+        return [TextContent(type="text", text="❌ 错误：plan_markdown 是必填项")]
+
+    try:
+        request = PlanSyncRequest(
+            project_id=project_id,
+            session_id=session_id,
+            plan_markdown=plan_markdown,
+        )
+
+        service = get_checklist_service()
+        result = service.sync_from_plan(request)
+
+        # 格式化输出
+        output = "✅ Plan 同步完成\n\n"
+
+        if result.completed:
+            output += f"📋 标记完成 ({len(result.completed)} 项):\n"
+            for short_id in result.completed:
+                output += f"  - (ma:{short_id}) ✓\n"
+            output += "\n"
+
+        if result.created:
+            output += f"📝 新建清单项 ({len(result.created)} 项):\n"
+            for item in result.created:
+                output += f"  - {item['content']} {item['ma_ref']}\n"
+            output += "\n"
+
+        if result.warnings:
+            output += "⚠️ 警告:\n"
+            for warning in result.warnings:
+                output += f"  - {warning}\n"
+            output += "\n"
+
+        if not result.completed and not result.created:
+            output += "*无变更*\n"
+
+        return [TextContent(type="text", text=output)]
+
+    except Exception as e:
+        return [TextContent(type="text", text=f"❌ Plan 同步失败: {str(e)}")]
+
+
+async def _handle_create_checklist_item(arguments: dict) -> Sequence[TextContent]:
+    """处理创建清单项请求"""
+    project_id = arguments.get("project_id", "")
+    content = arguments.get("content", "")
+    priority_int = arguments.get("priority", 3)
+    scope_str = arguments.get("scope", "project")
+    tags = arguments.get("tags", [])
+    ttl_days = arguments.get("ttl_days")
+
+    if not project_id:
+        return [TextContent(type="text", text="❌ 错误：project_id 是必填项")]
+    if not content:
+        return [TextContent(type="text", text="❌ 错误：content 是必填项")]
+
+    try:
+        request = ChecklistItemCreate(
+            content=content,
+            priority=ChecklistPriority(priority_int),
+            scope=ChecklistScope(scope_str),
+            tags=tags if tags else [],
+            ttl_days=ttl_days,
+        )
+
+        service = get_checklist_service()
+        item = service.create_item(project_id, request)
+
+        # 格式化输出
+        priority_labels = {
+            ChecklistPriority.CRITICAL: "🔴 紧急",
+            ChecklistPriority.HIGH: "🟠 高优",
+            ChecklistPriority.NORMAL: "🟡 普通",
+            ChecklistPriority.LOW: "🟢 低优",
+            ChecklistPriority.BACKLOG: "⚪ 待定",
+        }
+
+        output = "✅ 清单项已创建\n\n"
+        output += "📋 详情:\n"
+        output += f"- 内容: {item.content}\n"
+        output += f"- ID: {item.id}\n"
+        output += f"- 引用: {item.ma_ref()}\n"
+        output += f"- 优先级: {priority_labels.get(item.priority, '未知')}\n"
+        output += f"- 作用域: {item.scope.value}\n"
+        if item.tags:
+            output += f"- 标签: {', '.join(item.tags)}\n"
+        if item.expires_at:
+            output += f"- 过期时间: {item.expires_at.isoformat()}\n"
+
+        return [TextContent(type="text", text=output)]
+
+    except Exception as e:
+        return [TextContent(type="text", text=f"❌ 创建清单项失败: {str(e)}")]
 
 
 def _format_notes_markdown(notes: list, title: str, sync_time: str) -> str:
@@ -1064,12 +1368,14 @@ async def main():
     """启动 MCP Server"""
     # 重置所有单例以确保使用最新的环境变量（MCP_MEMORY_PROJECT_ID）
     from backend.config import reset_config
-    from backend.services.search import reset_search_service
+    from backend.services.checklist_service import reset_checklist_service
     from backend.services.memory import reset_memory_service
+    from backend.services.search import reset_search_service
 
     reset_config()
     reset_search_service()
     reset_memory_service()
+    reset_checklist_service()
 
     async with stdio_server() as (read_stream, write_stream):
         await server.run(

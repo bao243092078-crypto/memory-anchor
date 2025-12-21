@@ -8,7 +8,6 @@ This module ensures proper test isolation by:
 """
 
 import os
-from pathlib import Path
 
 import pytest
 
@@ -143,5 +142,12 @@ def _reset_all_singletons():
     try:
         import backend.services.constitution as cs
         cs._constitution_service = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset ChecklistService
+    try:
+        import backend.services.checklist_service as cls
+        cls._checklist_service = None
     except (ImportError, AttributeError):
         pass
