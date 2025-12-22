@@ -203,6 +203,44 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
+            name="delete_memory",
+            description="""删除指定的记忆。
+
+🔴 **高风险操作** - 需要用户明确确认。
+
+调用此工具前，请确保：
+1. 用户在消息中包含确认短语：
+   - "确认删除" / "我确认"
+   - "confirm delete" / "I confirm"
+2. 已向用户说明将要删除的内容
+
+如果没有确认短语，操作将被拦截。
+
+**使用场景**：
+- 清理错误添加的记忆
+- 删除过时的信息
+- 患者/照护者要求删除
+
+**注意**：
+- 不允许删除宪法层记忆（需使用 propose_constitution_change）
+- 删除操作不可逆
+- 建议先 search_memory 确认要删除的内容""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "note_id": {
+                        "type": "string",
+                        "description": "要删除的记忆 ID（UUID）",
+                    },
+                    "confirmation": {
+                        "type": "string",
+                        "description": "确认短语（必须包含 '确认删除' 或 'confirm delete'）",
+                    },
+                },
+                "required": ["note_id", "confirmation"],
+            },
+        ),
+        Tool(
             name="propose_constitution_change",
             description="""提议修改宪法层记忆（需三次审批）。
 
@@ -621,6 +659,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
         return await _handle_get_constitution(service)
     elif name == "propose_constitution_change":
         return await _handle_propose_constitution_change(arguments)
+    elif name == "delete_memory":
+        return await _handle_delete_memory(arguments)
     elif name == "sync_to_files":
         return await _handle_sync_to_files(arguments)
     # ===== L2 Event Log 工具（五层模型新增）=====
@@ -810,6 +850,85 @@ async def _handle_propose_constitution_change(arguments: dict) -> Sequence[TextC
 
     except ValueError as e:
         return [TextContent(type="text", text=f"❌ 错误：{str(e)}")]
+
+
+async def _handle_delete_memory(arguments: dict) -> Sequence[TextContent]:
+    """
+    处理删除记忆请求 - 高风险操作，需要用户确认。
+
+    使用 Gating Hook 机制拦截危险操作。
+    """
+    from uuid import UUID
+
+    from backend.hooks.gating_hook import gate_operation, is_confirmation_present
+    from backend.services.search import get_search_service
+
+    note_id = arguments.get("note_id", "")
+    confirmation = arguments.get("confirmation", "")
+
+    # Step 1: 验证 note_id 格式
+    if not note_id:
+        return [TextContent(type="text", text="❌ 错误：note_id 是必填项")]
+
+    try:
+        note_uuid = UUID(note_id)
+    except ValueError:
+        return [
+            TextContent(type="text", text=f"❌ 错误：无效的 note_id 格式: {note_id}")
+        ]
+
+    # Step 2: 调用 Gating Hook 检查确认短语
+    gate_result = gate_operation(
+        tool_name="delete_memory",
+        arguments={"note_id": note_id},
+        user_message=confirmation,
+    )
+
+    if not gate_result["allowed"]:
+        # 操作被拦截，返回确认消息
+        output = gate_result.get("confirmation_message") or gate_result.get("reason") or "操作被拦截"
+        return [TextContent(type="text", text=output)]
+
+    # Step 3: 执行删除
+    try:
+        search_service = get_search_service()
+
+        # 先检查记忆是否存在
+        existing = search_service.get_note(note_uuid)
+        if not existing:
+            return [
+                TextContent(
+                    type="text",
+                    text=f"❌ 错误：未找到 ID 为 {note_id} 的记忆",
+                )
+            ]
+
+        # 检查是否是宪法层（禁止直接删除）
+        layer = existing.get("layer", "")
+        if layer and layer.lower() in ("constitution", "identity_schema"):
+            return [
+                TextContent(
+                    type="text",
+                    text="❌ 错误：无法直接删除宪法层记忆。请使用 propose_constitution_change 工具提议删除。",
+                )
+            ]
+
+        # 执行删除
+        success = search_service.delete_note(note_uuid)
+
+        if success:
+            content = existing.get("content", "")
+            output = "✅ 记忆已删除\n\n"
+            output += f"- ID: {note_id}\n"
+            output += f"- 内容: {content[:100]}{'...' if len(content) > 100 else ''}\n"
+            output += f"- 层级: {layer}\n"
+            output += "\n⚠️ 此操作不可逆。"
+            return [TextContent(type="text", text=output)]
+        else:
+            return [TextContent(type="text", text="❌ 删除失败：未知错误")]
+
+    except Exception as e:
+        return [TextContent(type="text", text=f"❌ 删除失败：{str(e)}")]
 
 
 async def _handle_sync_to_files(arguments: dict) -> Sequence[TextContent]:

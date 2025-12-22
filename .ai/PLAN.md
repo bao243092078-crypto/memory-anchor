@@ -4,12 +4,21 @@
 
 ## 正在做
 
-- [ ] 偏离度量化（语义相似度）
-  - [ ] 设计偏离度计算算法
-  - [ ] 实现 /drift-check 命令的量化输出
-  - [ ] 测试偏离度计算
+（无）
 
 ## 已完成
+
+- [x] 高风险操作 Gating Hook
+  - [x] 设计 Gating Hook 机制（拦截 delete_memory、clear_*、constitution delete）
+  - [x] 实现确认短语检测（"确认删除"/"confirm delete"/"我确认"）
+  - [x] 实现 backend/hooks/gating_hook.py
+  - [x] 添加 MCP delete_memory 工具（带 Gating）
+  - [x] 测试 Gating Hook 功能（14 个测试通过）
+
+- [x] 偏离度量化（语义相似度）
+  - [x] 设计偏离度计算算法
+  - [x] 实现 /drift-check 命令的量化输出
+  - [x] 测试偏离度计算
 
 - [x] 北极星同步到 Memory Anchor L0（宪法层）
   - [x] 设计同步机制：NORTH_STAR.md → constitution 层
@@ -30,4 +39,4 @@
 
 ## 待定（以后再做）
 
-- [ ] 高风险操作 Gating Hook
+（无）
