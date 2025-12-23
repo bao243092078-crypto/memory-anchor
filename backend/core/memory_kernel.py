@@ -212,6 +212,10 @@ class MemoryKernel:
                 "created_at": r.get("created_at"),
                 "expires_at": r.get("expires_at"),
                 "is_constitution": False,
+                # L2 情景记忆特有字段
+                "event_when": r.get("event_when"),
+                "event_where": r.get("event_where"),
+                "event_who": r.get("event_who"),
             })
 
         # 2. 按分数排序，但宪法层始终在前
@@ -233,6 +237,10 @@ class MemoryKernel:
         expires_at: Optional[datetime] = None,
         requires_approval: bool = False,
         agent_id: Optional[str] = None,
+        # L2 情景记忆特有字段
+        event_when: Optional[str] = None,
+        event_where: Optional[str] = None,
+        event_who: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         添加记忆
@@ -253,6 +261,9 @@ class MemoryKernel:
             expires_at: 过期时间（可选）
             requires_approval: 是否需要审批（仅对非 AI 写入生效）
             agent_id: Agent ID（会话层需要）
+            event_when: L2 情景记忆 - 事件时间（ISO 时间字符串）
+            event_where: L2 情景记忆 - 事件地点
+            event_who: L2 情景记忆 - 涉及人物列表
 
         Returns:
             {"id": UUID, "status": "saved"/"pending_approval"/"rejected", ...}
@@ -309,6 +320,10 @@ class MemoryKernel:
                 expires_at=expires_at.isoformat() if expires_at else None,
                 priority=priority,
                 created_by=created_by_value,
+                # L2 情景记忆特有字段
+                event_when=event_when,
+                event_where=event_where,
+                event_who=event_who,
             )
         else:
             # 存入待审批队列（SQLite）
@@ -538,7 +553,7 @@ class MemoryKernel:
             from datetime import timedelta
             expires_at = event_time + timedelta(days=ttl_days)
 
-        # 调用 add_memory 写入 event_log 层
+        # 调用 add_memory 写入 event_log 层，传递 L2 情景记忆特有字段
         result = self.add_memory(
             content=enriched_content,
             layer=MemoryLayer.EVENT_LOG.value,
@@ -547,9 +562,13 @@ class MemoryKernel:
             confidence=confidence,
             expires_at=expires_at,
             agent_id=agent_id,
+            # L2 情景记忆特有字段 - 存储到 Qdrant payload
+            event_when=event_time.isoformat(),
+            event_where=where,
+            event_who=participants,
         )
 
-        # 添加事件特有字段
+        # 添加事件特有字段到返回结果（便于调用者使用）
         result["when"] = event_time.isoformat()
         result["where"] = where
         result["who"] = participants

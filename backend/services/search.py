@@ -175,6 +175,10 @@ class SearchService:
         priority: Optional[int] = None,
         created_by: Optional[str] = None,
         last_verified: Optional[str] = None,
+        # L2 情景记忆特有字段
+        event_when: Optional[str] = None,
+        event_where: Optional[str] = None,
+        event_who: Optional[List[str]] = None,
     ) -> bool:
         """
         索引一条便利贴到向量数据库。
@@ -190,6 +194,9 @@ class SearchService:
             agent_id: 会话层隔离用 agent_id（可选）
             created_at: ISO 时间字符串（可选）
             expires_at: ISO 时间字符串（可选）
+            event_when: L2 情景记忆 - 事件时间（ISO 时间字符串）
+            event_where: L2 情景记忆 - 事件地点
+            event_who: L2 情景记忆 - 涉及人物列表
 
         Returns:
             是否成功
@@ -227,6 +234,14 @@ class SearchService:
             payload["created_by"] = created_by
         if last_verified is not None:
             payload["last_verified"] = last_verified
+
+        # L2 情景记忆特有字段
+        if event_when is not None:
+            payload["event_when"] = event_when
+        if event_where is not None:
+            payload["event_where"] = event_where
+        if event_who is not None:
+            payload["event_who"] = event_who
 
         point = PointStruct(
             id=str(note_id),
@@ -377,6 +392,10 @@ class SearchService:
                 "created_at": r.payload.get("created_at"),
                 "expires_at": r.payload.get("expires_at"),
                 "last_verified": r.payload.get("last_verified"),
+                # L2 情景记忆特有字段
+                "event_when": r.payload.get("event_when"),
+                "event_where": r.payload.get("event_where"),
+                "event_who": r.payload.get("event_who"),
             }
             for r in results.points
         ]
@@ -457,6 +476,10 @@ class SearchService:
                 "created_at": (r.payload or {}).get("created_at"),
                 "expires_at": (r.payload or {}).get("expires_at"),
                 "last_verified": (r.payload or {}).get("last_verified"),
+                # L2 情景记忆特有字段
+                "event_when": (r.payload or {}).get("event_when"),
+                "event_where": (r.payload or {}).get("event_where"),
+                "event_who": (r.payload or {}).get("event_who"),
             }
             for r in records
         ]
@@ -496,6 +519,10 @@ class SearchService:
             "created_at": payload.get("created_at"),
             "expires_at": payload.get("expires_at"),
             "last_verified": payload.get("last_verified"),
+            # L2 情景记忆特有字段
+            "event_when": payload.get("event_when"),
+            "event_where": payload.get("event_where"),
+            "event_who": payload.get("event_who"),
         }
 
     def update_note(self, note_id: UUID, payload: dict) -> bool:
@@ -546,6 +573,10 @@ class SearchService:
             priority=priority_value,
             created_by=merged.get("created_by"),
             last_verified=last_verified,
+            # L2 情景记忆特有字段
+            event_when=merged.get("event_when"),
+            event_where=merged.get("event_where"),
+            event_who=merged.get("event_who"),
         )
 
     def delete_note(self, note_id: UUID) -> bool:
