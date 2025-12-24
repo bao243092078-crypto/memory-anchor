@@ -1,0 +1,46 @@
+# L4 Operations Index
+# AI 快速检索用索引
+# 更新于: 2025-12-24
+
+version: "1.0"
+last_updated: "2025-12-24"
+
+# SOP 分类索引
+sops:
+  # 基础设施
+  infrastructure:
+    - id: qdrant-startup
+      file: sop-qdrant-startup.md
+      triggers:
+        - "启动 qdrant"
+        - "qdrant 没启动"
+        - "502 Bad Gateway"
+        - "QDRANT_URL"
+      description: "启动 Qdrant Server 并验证连接"
+
+    - id: memory-sync
+      file: sop-memory-sync.md
+      triggers:
+        - "同步记忆"
+        - "pending 记忆"
+        - "离线记忆"
+      description: "同步 pending 记忆到 Qdrant"
+
+  # 开发流程
+  development:
+    - id: session-start
+      file: workflow-session-start.md
+      triggers:
+        - "新会话"
+        - "开始工作"
+        - "恢复上下文"
+      description: "会话开始时的标准流程"
+
+# 快速匹配规则
+# AI 遇到以下关键词时，应检索对应 SOP
+quick_match:
+  "qdrant": ["sop-qdrant-startup.md"]
+  "记忆同步": ["sop-memory-sync.md"]
+  "pending": ["sop-memory-sync.md"]
+  "会话开始": ["workflow-session-start.md"]
+  "恢复上下文": ["workflow-session-start.md"]
