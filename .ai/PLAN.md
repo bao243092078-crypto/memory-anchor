@@ -1,12 +1,20 @@
 # 当前计划
 
-> 最后更新：2025-12-22
+> 最后更新：2025-12-24
 
 ## 正在做
 
 （无）
 
 ## 已完成
+
+- [x] L4 操作性知识层完整实现（2025-12-24）
+  - [x] 创建 .ai/operations/ 基础设施（index.yaml + 3 个 SOP）
+  - [x] 实现 search_operations MCP 工具
+  - [x] 添加强制触发场景（Qdrant 问题、会话开始等）
+  - [x] 添加 L4 测试（11 个测试通过）
+  - [x] 更新文档（README.md + CLAUDE.md）
+  - [x] 五层认知记忆模型完整（L0-L4 + 13 个 MCP 工具）
 
 - [x] 高风险操作 Gating Hook
   - [x] 设计 Gating Hook 机制（拦截 delete_memory、clear_*、constitution delete）
