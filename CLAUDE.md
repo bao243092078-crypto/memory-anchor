@@ -2,6 +2,27 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🎯 北极星 + 计划系统（强制）
+
+**每次对话开始时，Hook 会自动注入：**
+- `.ai/NORTH_STAR.md` - 项目初心（为什么做）
+- `.ai/PLAN.md` - 当前计划（做什么）
+
+**AI 必须遵守的规则：**
+
+1. **接收新需求时** → 拆解成任务，更新 `.ai/PLAN.md` 的"正在做"
+2. **完成任务后** → 在 PLAN.md 中打勾 `[x]`，移动到"已完成"
+3. **发现新任务** → 添加到 PLAN.md
+4. **做任何事之前** → 检查是否符合 NORTH_STAR.md 的"绝对不做"
+
+**更新 PLAN.md 的命令格式：**
+```bash
+# AI 完成任务后执行
+Edit .ai/PLAN.md: 把 "- [ ] 任务" 改成 "- [x] 任务"
+```
+
+---
+
 ## Project Overview
 
 Memory Anchor is an MCP-based persistent memory system for AI assistants. Core metaphor: **treat AI as an Alzheimer's patient—capable but forgetful**. Memory Anchor is the AI's external hippocampus.
@@ -169,7 +190,7 @@ QDRANT_URL=http://localhost:6333 uv run memory-anchor serve
 ### Frontend Structure
 
 ```
-frontend/caregiver/     # React 18 + Vite + Tailwind (照护者端)
+frontend/caregiver/     # React 18 + Vite + Tailwind (记忆管理界面)
   ├── src/
   │   ├── api/          # HTTP client to backend
   │   ├── components/   # UI components
@@ -198,13 +219,13 @@ frontend/caregiver/     # React 18 + Vite + Tailwind (照护者端)
 
 **示例执行**：
 ```
-用户："帮我查一下女儿的电话"
+用户："上次我们为什么选择 Qdrant？"
 
 Claude 内部执行：
-1. query = "女儿电话联系方式"
-2. 调用 search_memory(query="女儿电话联系方式")
-3. 获取结果：[宪法层] 女儿王小红，电话13800138000
-4. 回答用户："根据记忆，您的女儿是王小红，电话是13800138000"
+1. query = "Qdrant 选型决策"
+2. 调用 search_memory(query="Qdrant 选型决策")
+3. 获取结果：[verified_fact] 决定使用 Qdrant 是因为支持向量检索 + 本地部署 + 并发访问
+4. 回答用户："根据记忆，选择 Qdrant 是因为：支持向量检索、本地部署、并发访问"
 ```
 
 **跳过条件**（仅以下情况可跳过 search_memory）：
@@ -345,7 +366,7 @@ Claude 内部执行：
 
 | 层级 | 代码标识 | 认知对应 | 说明 |
 |------|---------|---------|------|
-| **L0** | `identity_schema` | 自我概念 | 核心身份，仅照护者可改，需三次审批 |
+| **L0** | `identity_schema` | 自我概念 | 核心身份（项目目标），仅用户可改，需三次审批 |
 | **L1** | `active_context` | 工作记忆 | 会话临时状态，不持久化 |
 | **L2** | `event_log` | 情景记忆 | 带时空标记的事件，可设 TTL |
 | **L3** | `verified_fact` | 语义记忆 | 验证过的长期事实 |
@@ -362,8 +383,7 @@ Claude 内部执行：
 
 - **Tests required**: Every PR must include tests
 - **Privacy first**: Never log sensitive memory content
-- **Patient-friendly UI**: "祖母测试" - must be understandable by non-technical users
-- **Error messages**: User-friendly for patients ("稍等一下" not "500 Error")
+- **Developer-friendly**: Clear error messages with actionable guidance
 - **No destructive defaults**: Never auto-delete data
 - **Protected directories**: Don't manually edit `.memos/` or `.qdrant/`
 
@@ -374,14 +394,6 @@ Claude 内部执行：
 - **Configuration cascade**: Environment variables override YAML, which overrides defaults. See `backend/config.py`.
 - **Collection isolation**: Each project uses a separate Qdrant collection via `MCP_MEMORY_PROJECT_ID`.
 - **Layer normalization**: Code uses v2.0 layer names (`identity_schema`, `verified_fact`, `event_log`), but accepts v1.x names for backward compatibility.
-
-## Patient UI Accessibility Requirements
-
-- **Font size**: Minimum 24px
-- **Contrast**: Minimum 4.5:1 ratio
-- **Single focus**: One core message per screen
-- **Zero-click info**: Most important content visible without interaction
-- **Color psychology**: Avoid red (stress-inducing), prefer calming blues/greens
 
 ---
 
@@ -510,7 +522,7 @@ mcp__memory-anchor__add_memory(
 | 重要决策 | verified_fact | event | "决定使用 Qdrant 作为向量数据库" |
 | Bug 修复 | verified_fact | event | "修复了 search_memory 的空指针问题" |
 | 架构变更 | verified_fact | item | "升级到五层认知记忆模型" |
-| 发现关键信息 | verified_fact | 按内容 | "患者提到女儿下周要出差" |
+| 发现关键信息 | verified_fact | 按内容 | "发现 Qdrant 本地模式不支持并发访问" |
 | 会话摘要 | event_log | - | "本次会话讨论了 MCP 集成方案" |
 
 ---
@@ -616,7 +628,7 @@ def respond_with_memory(user_query, context):
         return incorporate_memories(user_query, context["relevant_facts"])
 
     # 3. 无相关记忆时，明确告知
-    return "我没有找到相关记忆，需要照护者补充"
+    return "我没有找到相关记忆，这可能是新内容"
 ```
 
 ---
@@ -625,7 +637,7 @@ def respond_with_memory(user_query, context):
 
 | 工具 | 用途 | 何时调用 |
 |------|------|---------|
-| `get_constitution` | 获取患者核心身份 | 每会话开始、身份相关问题 |
+| `get_constitution` | 获取项目核心身份 | 每会话开始、项目定位相关问题 |
 | `search_memory` | 语义搜索记忆 | 需要历史信息时 |
 | `add_memory` | 添加新记忆 | 完成重要工作后 |
 | `propose_constitution_change` | 提议修改宪法层 | 需要修改核心身份时（需三次审批） |
@@ -635,7 +647,7 @@ def respond_with_memory(user_query, context):
 | 置信度 | 处理方式 | 说明 |
 |--------|----------|------|
 | **≥ 0.9** | 直接存入事实层 | 高置信度，无需人工审批 |
-| **0.7-0.9** | 存入待审批区 | 需照护者确认 |
+| **0.7-0.9** | 存入待审批区 | 需用户确认 |
 | **< 0.7** | 拒绝存入 | 信息太模糊，丢弃 |
 
 ### 红线禁止
@@ -658,7 +670,7 @@ def respond_with_memory(user_query, context):
 │     ↓                                                        │
 │  Step 2: 创建 pending 状态的变更提议                         │
 │     ↓                                                        │
-│  Step 3: 照护者审批（调用 3 次 /approve/{id}）               │
+│  Step 3: 用户审批（调用 3 次 /approve/{id}）                 │
 │     ↓                                                        │
 │  Step 4: approvals_count >= 3 时，自动应用变更               │
 └─────────────────────────────────────────────────────────────┘
@@ -666,27 +678,27 @@ def respond_with_memory(user_query, context):
 
 **调用示例**：
 ```python
-# 提议新增宪法条目
+# 提议新增宪法条目（项目核心目标）
 mcp__memory-anchor__propose_constitution_change(
     change_type="create",
-    proposed_content="患者女儿王小红，电话13800138000",
-    reason="照护者提供的联系人信息",
-    category="person"
+    proposed_content="项目目标：为 AI 提供跨会话持久化记忆系统",
+    reason="明确项目定位",
+    category="item"
 )
 
 # 提议修改现有条目
 mcp__memory-anchor__propose_constitution_change(
     change_type="update",
-    proposed_content="患者女儿王小红，新电话13900139000",
-    reason="女儿换了新号码",
+    proposed_content="项目目标：为 AI 提供五层认知记忆系统",
+    reason="架构升级到五层模型",
     target_id="原条目的UUID",
-    category="person"
+    category="item"
 )
 ```
 
 **审批 API**：
 ```bash
-# 照护者审批（每次调用 +1，需要 3 次）
+# 用户审批（每次调用 +1，需要 3 次）
 POST /api/v1/constitution/approve/{change_id}
 
 # 查看待审批列表

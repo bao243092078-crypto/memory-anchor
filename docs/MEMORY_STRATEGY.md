@@ -53,11 +53,11 @@
 
 > **认知科学对应**：自我概念（Self-concept）——关于"我是谁"的核心信念
 
-**定位**: 患者/项目的核心身份，"冰箱上的便利贴"
+**定位**: 项目的核心身份，"冰箱上的便利贴"
 
 | 属性 | 规则 |
 |------|------|
-| **写入权限** | 仅照护者（人类） |
+| **写入权限** | 仅用户（人类） |
 | **写入流程** | 创建 → **三次审批** → 生效 |
 | **AI可写** | 禁止（必须通过 `propose_constitution_change`） |
 | **过期机制** | 永不过期 |
@@ -66,9 +66,9 @@
 
 **典型内容**:
 ```json
-{"content": "你是王明，今年75岁，住在北京海淀区", "priority": 0}
-{"content": "你的女儿叫王小红，电话13800138000", "priority": 1}
-{"content": "你每天需要在早8点、晚8点吃降压药", "priority": 2}
+{"content": "项目目标：为 AI 提供跨会话持久化记忆系统", "priority": 0}
+{"content": "技术栈：Python + FastAPI + Qdrant + MCP", "priority": 1}
+{"content": "核心约束：简洁 > 功能丰富，主动提醒 > 被动记录", "priority": 2}
 ```
 
 **红线规则**:
@@ -95,9 +95,9 @@
 **典型内容**:
 ```python
 # 当前对话的临时变量
-active_context.set("current_topic", "讨论女儿的出差安排")
-active_context.set("user_mood", "concerned")
-active_context.set("pending_questions", ["什么时候回来？", "谁来照顾？"])
+active_context.set("current_topic", "优化 search_memory 性能")
+active_context.set("task_status", "debugging")
+active_context.set("pending_questions", ["是否需要添加缓存？", "索引策略是什么？"])
 ```
 
 **与 L2 Event Log 的区别**:
@@ -127,17 +127,17 @@ class EventLog:
     when: datetime        # 何时（必填）
     where: Optional[str]  # 何地
     who: List[str]        # 涉及谁
-    source: str           # ai | user | caregiver
+    source: str           # ai | user | system
     ttl_days: Optional[int]  # 保留天数，None=永久
 ```
 
 **典型内容**:
 ```json
 {
-  "content": "女儿小红来看望，带了水果",
+  "content": "修复了 search_memory 空查询返回 None 的 Bug",
   "when": "2025-12-15T14:30:00Z",
-  "where": "家里",
-  "who": ["女儿小红"],
+  "where": "backend/services/memory.py",
+  "who": ["claude-code"],
   "ttl_days": 30
 }
 ```
@@ -156,7 +156,7 @@ class EventLog:
 
 | 属性 | 规则 |
 |------|------|
-| **写入权限** | 照护者 + AI（需置信度评估） |
+| **写入权限** | 用户 + AI（需置信度评估） |
 | **存储** | Qdrant（layer=verified_fact） |
 | **过期机制** | 永久，支持置信度衰减 |
 | **检索方式** | 语义向量检索 + 关键词混合 |
@@ -165,13 +165,13 @@ class EventLog:
 
 | 置信度 | 处理方式 | 示例 |
 |--------|----------|------|
-| **≥0.9** | 直接存入 | "患者确认女儿叫小红" |
-| **0.7-0.9** | 待审批区 | "患者提到以前喜欢钓鱼" |
+| **≥0.9** | 直接存入 | "用户确认使用 Qdrant 作为向量数据库" |
+| **0.7-0.9** | 待审批区 | "AI 推断项目需要缓存优化" |
 | **<0.7** | 拒绝存储 | 模糊/矛盾的信息 |
 
 **与 L2 Event Log 的区别**:
-- Event Log: "2025-12-15 女儿来看望了"（具体事件）
-- Verified Fact: "女儿经常来看望"（泛化的事实）
+- Event Log: "2025-12-15 修复了空指针 Bug"（具体事件）
+- Verified Fact: "空查询应返回空列表而非 None"（泛化的规则）
 
 ---
 
@@ -217,7 +217,7 @@ L1 Active Context → [会话结束] → L2 Event Log
                                       ↓
                                L3 Verified Fact
                                       ↓
-                              [照护者审批 ×3]
+                              [用户审批 ×3]
                                       ↓
                                L0 Identity Schema
 ```
@@ -350,11 +350,11 @@ propose_constitution_change(content: str, reason: str)
 
 | # | 查询 | 预期层级 | 预期召回 |
 |---|------|---------|---------|
-| 1 | "女儿电话" | L0 | 王小红 13800138000 |
-| 2 | "吃什么药" | L0 | 降压药 |
-| 3 | "今天去哪了" | L2 | 今日事件 |
-| 4 | "喜欢吃什么" | L3 | 饮食偏好 |
-| 5 | "上周谁来过" | L2 | 访客事件列表 |
+| 1 | "项目目标" | L0 | 为 AI 提供跨会话持久化记忆 |
+| 2 | "技术栈" | L0 | Python + FastAPI + Qdrant |
+| 3 | "今天修复了什么" | L2 | 今日 Bug 修复事件 |
+| 4 | "为什么用 Qdrant" | L3 | 技术选型决策 |
+| 5 | "上周完成了什么" | L2 | 开发事件列表 |
 
 ### 7.2 通过标准
 

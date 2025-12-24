@@ -1,67 +1,58 @@
 # Memory Anchor 🧠⚓
 
-> **为 AI 提供持久化记忆，如同阿尔茨海默症患者的便利贴**
+> **为什么叫"阿默斯海默症"？**
+>
+> 这是一个**隐喻**：把 AI 当作阿尔茨海默症患者来看待——能力很强，但有"记忆缺陷"。
+>
+> **AI 不是真的患病，但它有类似的问题：**
+>
+> | AI 的"病症" | 表现 |
+> |-------------|------|
+> | 🧠 **上下文压缩失忆** | 聊到一半，压缩后忘了之前讨论的细节 |
+> | 📋 **任务遗忘** | 做着做着忘了主要目标，丢三落四 |
+> | 👻 **幻觉跑偏** | 自己编造任务，跑去做别的事情 |
+>
+> **Memory Anchor = AI 的外挂海马体**，解决这些"记忆缺陷"。
 
-Memory Anchor 是一个基于 MCP（Model Context Protocol）的 AI 记忆系统，让 AI 助手拥有跨会话的持久记忆能力。
+## 核心问题
 
-## 核心理念
+使用 Claude Code、Cursor、Codex 等 AI 开发工具时，你是否遇到过：
 
-把 AI 当作阿尔茨海默症患者——**能力很强，但容易失忆**。Memory Anchor 就是 AI 的外挂海马体：
+1. **长对话压缩后，AI 忘了之前的关键决策**
+2. **AI 做着做着跑偏了，忘记了主要任务**
+3. **新会话开始，AI 对项目一无所知**
+4. **AI 开始幻觉，编造不存在的任务或功能**
 
-- **五层认知记忆模型**：基于认知科学的人类记忆系统，从核心身份到操作性知识
-- **清单革命**：跨会话持久化的清单管理，与 Plan skill 协同
-- **语义搜索**：基于 Qdrant 向量数据库，支持自然语言检索
-- **MCP 协议**：无缝集成 Claude Code、Claude Desktop 等 AI 工具
+这些都是 AI 的"阿默斯海默症"症状。
 
-## 适用场景
+## 解决方案
 
-| 场景 | 说明 |
-|------|------|
-| 🏥 **患者照护** | 阿尔茨海默症患者的记忆辅助系统 |
-| 🤖 **AI 开发** | 让 AI 助手记住项目上下文、决策历史 |
-| 📚 **知识管理** | 个人知识库，语义检索笔记 |
+Memory Anchor 提供：
+
+| 功能 | 解决的问题 |
+|------|-----------|
+| **身份图式层 (L0)** | 核心身份和目标，始终预加载，永不遗忘 |
+| **清单革命** | 跨会话持久的任务清单，防止丢三落四 |
+| **语义记忆 (L3)** | 重要决策和事实，可检索召回 |
+| **事件日志 (L2)** | 带时间戳的操作记录，可追溯 |
+| **三次审批机制** | 防止 AI 擅自修改关键信息 |
 
 ## 快速开始
-
-### 傻瓜 SOP（5 句话 + 3 个命令）
-
-1. 第一次：运行 `uv run memory-anchor init --project my-project` 创建项目。  
-2. 每天：运行 `uv run memory-anchor serve --project my-project`，让 Claude/Codex 自动连上记忆。  
-3. 看到红叉/报错：先跑 `uv run memory-anchor doctor --project my-project`，按“修复建议”执行。  
-4. 只要你没明确要 HTTP，就不要开端口（MCP 用 stdio，不会端口冲突）。  
-5. 想要 HTTP API 再用 `memory-anchor serve --mode http --port 8000`，端口占用先 doctor。  
-
-（在仓库目录也可以用 `./ma init|up|doctor`，内部等价于 `uv run memory-anchor ...`）
 
 ### 安装
 
 ```bash
-# 使用 pip
-pip install memory-anchor
-
-# 或使用 uv（推荐）
+# 使用 uv（推荐）
 uv add memory-anchor
+
+# 或使用 pip
+pip install memory-anchor
 ```
 
 ### 初始化项目
 
 ```bash
-# 交互式初始化
-memory-anchor init
-
-# > 项目名称: my-project
-# > 项目类型: [ai-development]
-# > 核心身份: 我是 baobao，AI 驱动的开发者
-```
-
-### 启动服务
-
-```bash
-# 启动 MCP Server（stdio 模式，用于 Claude Code）
-memory-anchor serve
-
-# 启动 HTTP API（用于自定义集成）
-memory-anchor serve --mode http --port 8000
+memory-anchor init --project my-project
 ```
 
 ### 配置 Claude Code
@@ -79,169 +70,146 @@ memory-anchor serve --mode http --port 8000
 }
 ```
 
-## 五层认知记忆模型 (v2.0)
+### 使用
 
-基于认知科学的人类记忆系统，映射到 AI 的记忆架构：
+```bash
+# 启动 MCP Server（Claude Code 自动调用）
+memory-anchor serve --project my-project
+
+# 健康检查
+memory-anchor doctor --project my-project
+
+# 快捷命令（在仓库目录）
+./ma up --project my-project
+./ma doctor --project my-project
+```
+
+## 五层认知记忆模型
+
+基于认知科学的 AI 记忆架构：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  L0: identity_schema (自我概念) ←── 三次审批 ←── 照护者     │
-│  L1: active_context (工作记忆)  ←── 会话临时 ←── AI        │
-│  L2: event_log (情景记忆)       ←── 时空标记 ←── AI/人工   │
-│  L3: verified_fact (语义记忆)   ←── 置信度≥0.8 ←── AI/人工 │
-│  L4: operational_knowledge (技能图式) ←── .ai/operations/  │
+│  L0: identity_schema (身份图式) ←── 始终预加载，三次审批    │
+│  L1: active_context (工作记忆)  ←── 会话临时，不持久化      │
+│  L2: event_log (事件日志)       ←── 时间戳记录，可设 TTL    │
+│  L3: verified_fact (验证事实)   ←── 长期存储，语义检索      │
+│  L4: operational_knowledge (操作知识) ←── .ai/operations/   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-| 层级 | 代码标识 | 认知对应 | 写入权限 | 持久化 |
-|------|---------|---------|----------|--------|
-| 🔴 L0 | `identity_schema` | 自我概念 | 仅照护者，三次审批 | YAML + Qdrant |
-| 🟡 L1 | `active_context` | 工作记忆 | 自动 | 仅内存（不持久化） |
-| 🟢 L2 | `event_log` | 情景记忆 | AI + 人工 | Qdrant（可设 TTL） |
-| 🔵 L3 | `verified_fact` | 语义记忆 | AI + 人工 | Qdrant（永久） |
-| ⚪ L4 | `operational_knowledge` | 技能图式 | 文件系统 | .ai/operations/ |
-
-### 向后兼容
-
-| 旧术语 (v1.x) | 新术语 (v2.x) |
-|--------------|--------------|
-| `constitution` | `identity_schema` |
-| `fact` | `verified_fact` |
-| `session` | `event_log` + `active_context` |
+| 层级 | 代码标识 | 解决的 AI 问题 |
+|------|---------|---------------|
+| 🔴 L0 | `identity_schema` | 防止 AI 忘记"我在做什么项目" |
+| 🟡 L1 | `active_context` | 会话内的临时状态 |
+| 🟢 L2 | `event_log` | 记录"刚才做了什么"，防止跑偏 |
+| 🔵 L3 | `verified_fact` | 长期决策记忆，上下文压缩后可召回 |
+| ⚪ L4 | `operational_knowledge` | "如何做"的操作手册 |
 
 ## MCP 工具
 
-### 记忆管理（核心）
+### 核心工具
 
 | 工具 | 说明 |
 |------|------|
-| `search_memory` | 语义搜索记忆（支持 layer/category 过滤） |
-| `add_memory` | 添加新记忆（支持置信度分级） |
-| `get_constitution` | 获取身份图式层（L0，每会话自动加载） |
-| `propose_constitution_change` | 提议修改身份图式（需三次审批） |
+| `search_memory` | 语义搜索记忆（防止 AI 遗忘） |
+| `add_memory` | 添加新记忆（任务完成后存档） |
+| `get_constitution` | 获取身份图式（每会话自动加载） |
+| `propose_constitution_change` | 提议修改核心信息（需三次审批） |
 
-### 清单革命（v2.0 新增）
-
-> **设计原则**：Checklist = 战略层（跨会话持久），Plan skill = 战术层（单次任务）
+### 清单革命
 
 | 工具 | 说明 |
 |------|------|
-| `create_checklist_item` | 创建持久化清单项（支持优先级/范围/标签） |
-| `get_checklist_briefing` | 获取清单简报（会话开始时自动调用） |
-| `sync_from_plan` | 从 Plan skill 同步状态（通过 `(ma:xxx)` ID 桥接） |
+| `create_checklist_item` | 创建持久化清单项（防止丢三落四） |
+| `get_checklist_briefing` | 获取清单简报（会话开始时自动加载） |
+| `sync_from_plan` | 从 Plan skill 同步完成状态 |
 
-### 事件日志（v2.0 新增）
+### 事件日志
 
 | 工具 | 说明 |
 |------|------|
-| `log_event` | 记录带时空标记的事件（L2 情景记忆） |
-| `search_events` | 按时间/地点/人物过滤事件 |
-| `promote_to_fact` | 将事件提升为验证事实（L2 → L3） |
+| `log_event` | 记录带时间戳的事件 |
+| `search_events` | 按时间范围搜索 |
+| `promote_to_fact` | 将事件提升为长期记忆 |
 
-### 使用示例
+## 使用场景
+
+### 1. AI 开发项目记忆
 
 ```python
-# AI 搜索相关记忆
-memories = search_memory(query="上次讨论的架构决策")
-
-# AI 记录重要发现（使用新 layer 名称）
-add_memory(
-    content="决定使用 Qdrant 作为向量数据库",
-    layer="verified_fact",  # 新术语，兼容旧的 "fact"
-    category="event",
-    confidence=0.9
-)
-
-# 获取核心身份（每次会话开始时加载）
+# 会话开始时，AI 自动加载项目上下文
 constitution = get_constitution()
+# → "这是 Memory Anchor 项目，使用 Python + FastAPI + Qdrant"
 
-# 创建持久化清单项
+# 搜索之前的决策
+memories = search_memory(query="为什么用 Qdrant")
+# → "决定使用 Qdrant 是因为支持向量检索 + 本地部署"
+```
+
+### 2. 防止任务遗忘
+
+```python
+# 创建清单项，跨会话持久
 create_checklist_item(
     content="实现五层认知记忆模型",
     priority="high",
-    scope="project",
     tags=["architecture", "v2.0"]
 )
 
-# 获取清单简报（返回 Markdown 格式）
-briefing = get_checklist_briefing(
-    scope="project",
-    include_ids=True  # 包含 (ma:xxx) 引用
+# 下次会话开始时自动获取
+briefing = get_checklist_briefing()
+# → "待办：实现五层认知记忆模型 [高优先级]"
+```
+
+### 3. 任务完成后存档
+
+```python
+# 完成重要工作后，写入记忆
+add_memory(
+    content="修复了 search_memory 空查询导致的空指针问题",
+    layer="verified_fact",
+    category="event",
+    confidence=0.9
 )
-
-# 从 Plan 同步完成状态
-sync_from_plan(
-    plan_markdown=plan_content,  # 解析 [x] 和 (ma:xxx)
-    session_id="session-001"
-)
 ```
 
-## 配置文件
+## 为什么需要 Memory Anchor？
 
-初始化后会在 `~/.memory-anchor/projects/{name}/` 创建配置：
+### AI 的"记忆缺陷"本质
 
-```yaml
-# constitution.yaml - 宪法层定义
-version: 1
-project:
-  name: "my-project"
-  type: "ai-development"
+| 人类阿尔茨海默症 | AI 的类似问题 |
+|-----------------|--------------|
+| 短期记忆受损 | 上下文窗口有限（200K tokens） |
+| 长期记忆模糊 | 无跨会话持久化 |
+| 需要便利贴提醒 | 需要 Memory Anchor |
+| 海马体退化 | 没有"海马体"（记忆存储器） |
 
-constitution:
-  - id: "user-identity"
-    category: "person"
-    content: "用户是 baobao，AI 驱动的开发者"
-
-  - id: "project-goal"
-    category: "item"
-    content: "构建可复制的自动化流水线"
-
-settings:
-  max_constitution_items: 20
-  min_search_score: 0.3
-  session_expire_hours: 24
-```
-
-## 项目结构
+### Memory Anchor 的作用
 
 ```
-memory-anchor/
-├── backend/
-│   ├── api/              # FastAPI 路由
-│   │   ├── notes.py      # 记忆 CRUD
-│   │   ├── search.py     # 语义搜索
-│   │   ├── memory.py     # 记忆操作
-│   │   ├── constitution.py  # 身份图式层
-│   │   └── checklist.py  # 清单革命 API
-│   ├── cli/              # CLI 命令
-│   │   ├── init_cmd.py   # 项目初始化
-│   │   ├── serve_cmd.py  # 服务启动
-│   │   └── doctor_cmd.py # 健康诊断
-│   ├── core/             # 核心引擎
-│   │   ├── memory_kernel.py   # 记忆内核（sync）
-│   │   └── active_context.py  # L1 工作记忆
-│   ├── models/           # 数据模型
-│   │   ├── note.py       # 记忆层枚举
-│   │   ├── checklist.py  # 清单模型
-│   │   └── constitution_change.py  # 变更提议
-│   ├── services/         # 业务逻辑
-│   │   ├── search.py     # Qdrant 向量搜索
-│   │   ├── memory.py     # 记忆服务
-│   │   ├── constitution.py  # 身份图式管理
-│   │   ├── checklist_service.py  # 清单服务
-│   │   └── embedding.py  # FastEmbed 向量化
-│   └── tests/            # pytest 测试
-├── scripts/              # 运维脚本
-│   ├── mcp_wrapper.sh    # MCP 环境包装
-│   └── checkpoint.py     # 上下文保护 Hook
-├── docs/                 # 文档
-│   └── MEMORY_STRATEGY.md  # 记忆策略详解
-├── .memos/               # 记忆同步目录
-├── ma                    # CLI 快捷入口
-├── pyproject.toml        # 项目配置
-├── LICENSE               # MIT 许可证
-└── README.md
+AI（无 Memory Anchor）          AI（有 Memory Anchor）
+       │                               │
+   ┌───┴───┐                       ┌───┴───┐
+   │上下文满│                       │上下文满│
+   │  压缩  │                       │  压缩  │
+   └───┬───┘                       └───┬───┘
+       │                               │
+       ▼                               ▼
+   ┌───────┐                       ┌───────┐
+   │ 失忆  │                       │ 从 L0 │
+   │ 跑偏  │                       │ 恢复  │
+   │ 幻觉  │                       │ 上下文│
+   └───────┘                       └───────┘
 ```
+
+## 技术栈
+
+- **后端**: Python 3.12 + FastAPI + Pydantic
+- **向量数据库**: Qdrant（本地/远程）
+- **嵌入模型**: FastEmbed (all-MiniLM-L6-v2)
+- **MCP**: Model Context Protocol
+- **CLI**: Typer + Rich
 
 ## 开发
 
@@ -263,51 +231,44 @@ uv run pytest
 uv run ruff check backend
 ```
 
-## 技术栈
-
-- **后端**: Python 3.12 + FastAPI + Pydantic
-- **向量数据库**: Qdrant（本地/远程）
-- **嵌入模型**: FastEmbed (all-MiniLM-L6-v2)
-- **MCP**: Model Context Protocol
-- **CLI**: Typer + Rich
-
 ## 路线图
 
 ### 已完成 ✅
 
-- [x] 三层记忆模型 → **升级为五层认知记忆模型 (v2.0)**
+- [x] 五层认知记忆模型
 - [x] MCP Server 集成
-- [x] CLI 工具（init/serve/status/doctor）
-- [x] 宪法层三次审批机制
-- [x] **清单革命**：ChecklistService + Plan skill 协同
-- [x] **事件日志**：L2 情景记忆（带时空标记）
-- [x] **向后兼容**：旧 API (constitution/fact/session) 自动映射
+- [x] CLI 工具（init/serve/doctor）
+- [x] 身份图式三次审批机制
+- [x] 清单革命（ChecklistService）
+- [x] 事件日志（L2 Event Log）
+- [x] 高风险操作 Gating Hook
 
 ### 进行中 🚧
 
-- [ ] Web UI（照护者端）
-- [ ] checkpoint.py 上下文保护（PreCompact Hook）
+- [ ] checkpoint.py 上下文保护
+- [ ] 北极星对齐系统
 
 ### 规划中 📋
 
-- [ ] TTS 语音播报
-- [ ] 多用户支持
+- [ ] 多项目隔离增强
 - [ ] 云端同步
 - [ ] 多语言支持
-
-## 贡献
-
-欢迎贡献！请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何参与。
 
 ## 许可证
 
 [MIT License](LICENSE)
 
+---
+
 ## 致谢
 
-这个项目的灵感来自于：**如果 AI 是阿尔茨海默症患者，那它需要什么样的外挂记忆？**
+这个项目的核心洞见：
 
-答案是：一个可靠的、有层级的、能语义检索的记忆锚点。
+**AI 的"阿默斯海默症"不是 bug，是 feature 的缺失。**
+
+上下文窗口有限、无持久记忆、容易跑偏——这些是当前 AI 的固有限制。Memory Anchor 不是治愈 AI，而是给它一个**外挂的海马体**。
+
+就像阿尔茨海默症患者用便利贴提醒自己重要的事，AI 用 Memory Anchor 记住关键决策、任务清单和项目上下文。
 
 ---
 
