@@ -125,13 +125,24 @@ memory-anchor doctor --project my-project
 | `get_checklist_briefing` | 获取清单简报（会话开始时自动加载） |
 | `sync_from_plan` | 从 Plan skill 同步完成状态 |
 
-### 事件日志
+### 事件日志 (L2)
 
 | 工具 | 说明 |
 |------|------|
 | `log_event` | 记录带时间戳的事件 |
 | `search_events` | 按时间范围搜索 |
 | `promote_to_fact` | 将事件提升为长期记忆 |
+
+### 操作性知识 (L4)
+
+| 工具 | 说明 |
+|------|------|
+| `search_operations` | 搜索 SOP/Workflow（遇到常见问题时自动触发） |
+
+L4 工具会在以下场景**自动触发**：
+- Qdrant 未运行 / 502 Bad Gateway
+- 会话开始 / 恢复上下文
+- 遇到已知问题（匹配 `.ai/operations/` 中的触发词）
 
 ## 使用场景
 
@@ -235,18 +246,20 @@ uv run ruff check backend
 
 ### 已完成 ✅
 
-- [x] 五层认知记忆模型
-- [x] MCP Server 集成
+- [x] 五层认知记忆模型（L0-L4 完整）
+- [x] MCP Server 集成（13 个工具）
 - [x] CLI 工具（init/serve/doctor）
-- [x] 身份图式三次审批机制
+- [x] 身份图式三次审批机制 (L0)
+- [x] 事件日志 (L2 Event Log)
+- [x] 语义记忆 (L3 Verified Fact)
+- [x] **操作性知识 (L4 search_operations)** ← 新增
 - [x] 清单革命（ChecklistService）
-- [x] 事件日志（L2 Event Log）
 - [x] 高风险操作 Gating Hook
+- [x] 北极星对齐系统
 
 ### 进行中 🚧
 
 - [ ] checkpoint.py 上下文保护
-- [ ] 北极星对齐系统
 
 ### 规划中 📋
 

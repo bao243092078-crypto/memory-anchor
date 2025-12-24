@@ -633,14 +633,42 @@ def respond_with_memory(user_query, context):
 
 ---
 
-### 四个 MCP 工具速查
+### MCP 工具速查（13 个工具）
 
+#### 核心工具
 | 工具 | 用途 | 何时调用 |
 |------|------|---------|
-| `get_constitution` | 获取项目核心身份 | 每会话开始、项目定位相关问题 |
-| `search_memory` | 语义搜索记忆 | 需要历史信息时 |
-| `add_memory` | 添加新记忆 | 完成重要工作后 |
-| `propose_constitution_change` | 提议修改宪法层 | 需要修改核心身份时（需三次审批） |
+| `get_constitution` | 获取项目核心身份 (L0) | 每会话开始、项目定位相关问题 |
+| `search_memory` | 语义搜索记忆 (L3) | 需要历史信息时 |
+| `add_memory` | 添加新记忆 (L3) | 完成重要工作后 |
+| `propose_constitution_change` | 提议修改宪法层 (L0) | 需要修改核心身份时（需三次审批） |
+| `delete_memory` | 删除记忆 | 需要清理错误记忆时（需确认短语） |
+| `sync_to_files` | 同步到 .memos/ | 会话结束时 |
+
+#### L2 事件日志工具
+| 工具 | 用途 | 何时调用 |
+|------|------|---------|
+| `log_event` | 记录带时空标记的事件 | 发生重要事件时 |
+| `search_events` | 按时间/地点/人物搜索 | 查找历史事件时 |
+| `promote_to_fact` | 将事件提升为 L3 事实 | 事件被验证后 |
+
+#### L4 操作性知识工具
+| 工具 | 用途 | 何时调用 |
+|------|------|---------|
+| `search_operations` | 搜索 SOP/Workflow | ⚠️ 遇到以下情况**必须先调用** |
+
+**search_operations 强制触发场景**：
+- Qdrant 未运行、502 Bad Gateway、QDRANT_URL 错误
+- MCP 连接失败、记忆系统故障
+- 会话开始、恢复上下文
+- 遇到已知问题模式（如"pending 记忆"、"同步记忆"）
+
+#### 清单革命工具
+| 工具 | 用途 | 何时调用 |
+|------|------|---------|
+| `get_checklist_briefing` | 获取清单简报 | 会话开始时 |
+| `sync_plan_to_checklist` | 同步 Plan 到清单 | 会话结束时 |
+| `create_checklist_item` | 创建持久化清单项 | 发现新任务时 |
 
 ### 置信度分级处理
 
