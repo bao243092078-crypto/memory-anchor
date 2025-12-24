@@ -9,12 +9,13 @@ Memory Anchor MCP Server v2.0 - 供 Claude Code 使用的记忆接口
 - L4: operational_knowledge (技能图式) - 操作性知识
 
 MCP 工具：
-- search_memory - 搜索患者记忆
+- search_memory - 搜索患者记忆（L3）
 - add_memory - 添加记忆（L2/L3 层）
 - get_constitution - 获取宪法层（L0）
 - log_event - 记录事件到情景记忆（L2）
-- search_events - 搜索事件日志
+- search_events - 搜索事件日志（L2）
 - promote_to_fact - 将事件提升为事实（L2 → L3）
+- search_operations - 搜索操作性知识 SOP/Workflow（L4）
 
 使用方式：
 1. 在 Claude Code 的 MCP 配置中添加此服务器
@@ -643,6 +644,51 @@ Markdown 格式的清单简报，按优先级分组，包含 (ma:xxx) 引用 ID�
                 "required": ["project_id", "content"],
             },
         ),
+        # ===== L4 Operational Knowledge 工具（五层模型补全）=====
+        Tool(
+            name="search_operations",
+            description="""搜索 L4 操作性知识（SOP/Workflow）。
+
+⚠️ **强制调用场景**：遇到以下情况时，必须先调用此工具查找 SOP：
+
+**基础设施问题**：
+- Qdrant 未运行、502 Bad Gateway、QDRANT_URL 错误
+- MCP 连接失败、记忆系统故障
+- 需要启动/重启服务
+
+**开发流程问题**：
+- 会话开始时的标准流程
+- 记忆同步（pending → Qdrant）
+- 上下文恢复
+
+**核心原则**：
+- L4 操作性知识 = AI 的"肌肉记忆"
+- 遇到已有 SOP 的问题，应该按 SOP 执行，而不是重新思考
+- 这符合北极星原则："不依赖 AI 自觉（要有强制机制）"
+
+**输入**：问题关键词（如 "qdrant"、"pending"、"会话开始"）
+**输出**：匹配的 SOP 文件路径和简要说明
+
+**示例查询**：
+- "qdrant" → 返回 sop-qdrant-startup.md
+- "pending" → 返回 sop-memory-sync.md
+- "会话开始" → 返回 workflow-session-start.md""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "搜索关键词",
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "是否包含 SOP 文件内容（默认只返回路径和摘要）",
+                    },
+                },
+                "required": ["query"],
+            },
+        ),
     ]
 
 
@@ -677,6 +723,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
         return await _handle_sync_plan_to_checklist(arguments)
     elif name == "create_checklist_item":
         return await _handle_create_checklist_item(arguments)
+    # ===== L4 Operational Knowledge 工具（五层模型补全）=====
+    elif name == "search_operations":
+        return await _handle_search_operations(arguments)
     else:
         return [TextContent(type="text", text=f"未知工具: {name}")]
 
@@ -1429,6 +1478,150 @@ def _format_index_markdown(notes: list, sync_time: str) -> str:
     lines.append("")
 
     return "\n".join(lines)
+
+
+# ===== L4 Operational Knowledge Handler =====
+
+
+async def _handle_search_operations(arguments: dict) -> Sequence[TextContent]:
+    """处理 L4 操作性知识搜索请求"""
+    import os
+    from pathlib import Path
+
+    import yaml
+
+    query = arguments.get("query", "").lower()
+    include_content = arguments.get("include_content", False)
+
+    if not query:
+        return [TextContent(type="text", text="❌ 错误：query 是必填项")]
+
+    # 获取项目根目录（从环境变量或当前工作目录）
+    project_root = os.environ.get("MCP_MEMORY_PROJECT_ROOT")
+    if not project_root:
+        # 尝试从当前文件位置推断
+        current_file = Path(__file__)
+        project_root = str(current_file.parent.parent)
+
+    ops_dir = Path(project_root) / ".ai" / "operations"
+    index_file = ops_dir / "index.yaml"
+
+    # 检查目录是否存在
+    if not ops_dir.exists():
+        return [
+            TextContent(
+                type="text",
+                text="⚠️ L4 操作性知识目录不存在。\n\n"
+                "请先创建 `.ai/operations/` 目录和 `index.yaml` 索引文件。\n"
+                "参考：docs/MEMORY_STRATEGY.md 的 L4 章节。",
+            )
+        ]
+
+    if not index_file.exists():
+        return [
+            TextContent(
+                type="text",
+                text="⚠️ L4 索引文件不存在。\n\n"
+                f"请在 {ops_dir} 目录下创建 `index.yaml` 文件。",
+            )
+        ]
+
+    # 加载索引
+    try:
+        with open(index_file, encoding="utf-8") as f:
+            index = yaml.safe_load(f)
+    except Exception as e:
+        return [TextContent(type="text", text=f"❌ 加载索引失败：{e}")]
+
+    matched_files: list[dict] = []
+
+    # 1. 快速匹配：直接关键词匹配
+    quick_match = index.get("quick_match", {})
+    for keyword, files in quick_match.items():
+        if query in keyword.lower():
+            for file in files:
+                file_path = ops_dir / file
+                if file_path.exists():
+                    matched_files.append(
+                        {
+                            "file": file,
+                            "path": str(file_path),
+                            "match_type": "quick_match",
+                            "keyword": keyword,
+                        }
+                    )
+
+    # 2. 触发条件匹配：搜索 sops.*.triggers
+    for category, sops in index.get("sops", {}).items():
+        for sop in sops:
+            triggers = sop.get("triggers", [])
+            for trigger in triggers:
+                if query in trigger.lower():
+                    file = sop.get("file", "")
+                    file_path = ops_dir / file
+                    # 避免重复添加
+                    if not any(m["file"] == file for m in matched_files):
+                        if file_path.exists():
+                            matched_files.append(
+                                {
+                                    "file": file,
+                                    "path": str(file_path),
+                                    "match_type": "trigger",
+                                    "trigger": trigger,
+                                    "description": sop.get("description", ""),
+                                    "category": category,
+                                }
+                            )
+                    break
+
+    # 格式化输出
+    if not matched_files:
+        return [
+            TextContent(
+                type="text",
+                text=f"🔍 未找到与 \"{query}\" 匹配的 SOP/Workflow。\n\n"
+                "可尝试更通用的关键词，或直接浏览 `.ai/operations/` 目录。",
+            )
+        ]
+
+    output_lines = [f"⚪ L4 搜索 \"{query}\" 找到 {len(matched_files)} 个匹配：\n"]
+
+    for i, match in enumerate(matched_files, 1):
+        file = match["file"]
+        match_type = match["match_type"]
+        description = match.get("description", "")
+        trigger = match.get("trigger", "")
+        keyword = match.get("keyword", "")
+
+        output_lines.append(f"## {i}. {file}")
+        if description:
+            output_lines.append(f"   📋 {description}")
+        if match_type == "quick_match":
+            output_lines.append(f"   🔑 快速匹配: \"{keyword}\"")
+        elif match_type == "trigger":
+            output_lines.append(f"   🎯 触发条件: \"{trigger}\"")
+        output_lines.append(f"   📁 路径: {match['path']}")
+
+        # 如果需要包含内容
+        if include_content:
+            file_path = Path(match["path"])
+            try:
+                content = file_path.read_text(encoding="utf-8")
+                # 只取前 2000 字符，避免输出过长
+                if len(content) > 2000:
+                    content = content[:2000] + "\n\n... (内容已截断，请直接读取文件)"
+                output_lines.append("\n```markdown")
+                output_lines.append(content)
+                output_lines.append("```\n")
+            except Exception as e:
+                output_lines.append(f"   ⚠️ 读取失败: {e}")
+
+        output_lines.append("")
+
+    output_lines.append("---")
+    output_lines.append("💡 提示：按 SOP 步骤执行，而非重新思考解决方案。")
+
+    return [TextContent(type="text", text="\n".join(output_lines))]
 
 
 # === Resources ===

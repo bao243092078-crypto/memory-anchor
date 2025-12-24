@@ -18,10 +18,10 @@ class TestMCPTools:
     """测试 MCP 工具定义"""
 
     @pytest.mark.asyncio
-    async def test_list_tools_returns_eleven_tools(self):
-        """验证有十一个工具（五层模型 + 清单革命）"""
+    async def test_list_tools_returns_thirteen_tools(self):
+        """验证有十三个工具（五层模型完整 + 清单革命）"""
         tools = await list_tools()
-        assert len(tools) == 11
+        assert len(tools) == 13
         tool_names = {t.name for t in tools}
         assert tool_names == {
             "search_memory",
@@ -29,10 +29,13 @@ class TestMCPTools:
             "get_constitution",
             "propose_constitution_change",
             "sync_to_files",
-            # 五层模型新增的 L2 工具
+            "delete_memory",
+            # 五层模型 L2 工具
             "log_event",
             "search_events",
             "promote_to_fact",
+            # 五层模型 L4 工具（补全）
+            "search_operations",
             # 清单革命工具
             "get_checklist_briefing",
             "sync_plan_to_checklist",
