@@ -6,12 +6,7 @@
 
 ### Harness 增强（学习 claude-code-harness）
 
-**Phase 3: Stop Hook + Session 摘要（P1）** ⬅️ 当前
-- [ ] Stop hook 生成会话摘要
-- [ ] 自动写入 Memory Anchor
-- [ ] 提取未完成任务
-
-**Phase 4: 阈值可配置（P2）**
+**Phase 4: 阈值可配置（P2）** ⬅️ 当前
 - [ ] 添加环境变量：MA_PLANS_MAX_LINES, MA_SESSION_LOG_MAX_LINES 等
 - [ ] 修改 config.py 支持阈值配置
 
@@ -31,6 +26,13 @@
 - [ ] 并行执行 + 报告生成
 
 ## 已完成
+
+- [x] Stop Hook + Session 摘要（Phase 3）（2025-12-25）
+  - [x] Stop hook 生成会话摘要（files/memory ops 统计）
+  - [x] 自动写入 Memory Anchor（event_log 层）
+  - [x] TODO/FIXME 提取（从修改的源文件中）
+  - [x] StateManager 集成（会话归档）
+  - [x] 25 个测试全部通过
 
 - [x] 状态文件结构化（Phase 2）（2025-12-25）
   - [x] 创建 `backend/state/` 模块
