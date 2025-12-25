@@ -6,14 +6,7 @@
 
 ### Harness 增强（学习 claude-code-harness）
 
-**Phase 1: Hook 框架统一（P0）** ⬅️ 当前
-- [ ] 创建 `backend/hooks/base.py` - HookType 枚举 + BaseHook 抽象类
-- [ ] 创建 `backend/hooks/registry.py` - HookRegistry 注册中心
-- [ ] 重构 `gating_hook.py` 适配新框架
-- [ ] 实现 PostToolUse hook
-- [ ] 实现 Stop hook
-
-**Phase 2: 状态文件结构化（P1）**
+**Phase 2: 状态文件结构化（P1）** ⬅️ 当前
 - [ ] 创建 `.claude/state/` 目录结构
 - [ ] 实现 `session.json` 会话元数据
 - [ ] 实现 `test-recommendation.json` 测试建议
@@ -43,6 +36,14 @@
 - [ ] 并行执行 + 报告生成
 
 ## 已完成
+
+- [x] Hook 框架统一（Phase 1）（2025-12-25）
+  - [x] 创建 `backend/hooks/base.py` - HookType 枚举 + BaseHook 抽象类
+  - [x] 创建 `backend/hooks/registry.py` - HookRegistry 注册中心
+  - [x] 重构 `gating_hook.py` 适配新框架
+  - [x] 实现 PostToolUse hook - 文件修改追踪
+  - [x] 实现 Stop hook - 会话摘要生成
+  - [x] 77 个测试全部通过
 
 - [x] Memory Refiner（CoDA 上下文解耦）（2025-12-25）
   - [x] LLM Provider 抽象层（Anthropic/OpenAI/Local）
