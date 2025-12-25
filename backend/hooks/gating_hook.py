@@ -10,6 +10,7 @@ Memory Anchor Gating Hook - 高风险操作拦截
 使用方法：
 1. 作为 Claude Code PreToolUse hook
 2. 在 MCP Server 内部调用
+3. 通过 HookRegistry 注册执行
 
 确认短语：
 - "确认删除" / "confirm delete"
@@ -20,11 +21,18 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from backend.hooks.base import (
+    BaseHook,
+    HookContext,
+    HookDecision,
+    HookResult,
+    HookType,
+)
 
 # 配置日志
 LOG_DIR = Path.home() / ".memory-anchor" / "logs"
@@ -42,7 +50,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 高风险操作列表
-HIGH_RISK_OPERATIONS = {
+HIGH_RISK_OPERATIONS: dict[str, tuple[str, str]] = {
     # MCP 工具名 -> (风险等级, 描述)
     "delete_memory": ("critical", "删除记忆"),
     "clear_active_context": ("high", "清除工作记忆"),
@@ -99,7 +107,7 @@ def log_high_risk_attempt(
     description: str,
     blocked: bool,
     reason: str | None = None,
-):
+) -> None:
     """记录高风险操作尝试"""
     log_entry = {
         "timestamp": datetime.now().isoformat(),
@@ -119,73 +127,6 @@ def log_high_risk_attempt(
     # 追加到日志文件
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-
-
-def gate_operation(
-    tool_name: str,
-    arguments: dict[str, Any],
-    user_message: str | None = None,
-) -> dict[str, Any]:
-    """
-    高风险操作门控
-
-    Args:
-        tool_name: MCP 工具名
-        arguments: 工具参数
-        user_message: 用户最近的消息（用于检查确认短语）
-
-    Returns:
-        {
-            "allowed": bool,
-            "reason": str | None,
-            "requires_confirmation": bool,
-            "confirmation_message": str | None,
-        }
-    """
-    risk_level, description = evaluate_risk(tool_name, arguments)
-
-    # 无风险操作直接放行
-    if risk_level is None:
-        return {
-            "allowed": True,
-            "reason": None,
-            "requires_confirmation": False,
-            "confirmation_message": None,
-        }
-
-    # 类型断言：如果 risk_level 不为 None，description 也不为 None
-    assert description is not None, "evaluate_risk should return both or neither"
-
-    # 有风险操作，检查是否有确认
-    has_confirmation = is_confirmation_present(user_message)
-
-    if has_confirmation:
-        # 有确认，放行但记录
-        log_high_risk_attempt(
-            tool_name, arguments, risk_level, description,
-            blocked=False, reason="用户已确认"
-        )
-        return {
-            "allowed": True,
-            "reason": "用户已确认",
-            "requires_confirmation": False,
-            "confirmation_message": None,
-        }
-
-    # 无确认，阻止并要求确认
-    confirmation_message = _build_confirmation_message(tool_name, arguments, risk_level, description)
-
-    log_high_risk_attempt(
-        tool_name, arguments, risk_level, description,
-        blocked=True, reason="需要用户确认"
-    )
-
-    return {
-        "allowed": False,
-        "reason": f"高风险操作需要确认: {description}",
-        "requires_confirmation": True,
-        "confirmation_message": confirmation_message,
-    }
 
 
 def _build_confirmation_message(
@@ -231,6 +172,136 @@ def _build_confirmation_message(
     return "\n".join(lines)
 
 
+class GatingHook(BaseHook):
+    """高风险操作门控 Hook
+
+    拦截高风险操作（删除记忆、清除上下文等），
+    要求用户明确确认后才允许执行。
+    """
+
+    @property
+    def hook_type(self) -> HookType:
+        return HookType.PRE_TOOL_USE
+
+    @property
+    def name(self) -> str:
+        return "GatingHook"
+
+    @property
+    def priority(self) -> int:
+        # 高优先级，确保第一个执行
+        return 10
+
+    def should_run(self, context: HookContext) -> bool:
+        """只处理 memory-anchor 相关工具"""
+        tool_name = context.tool_name or ""
+
+        # MCP 工具名格式: mcp__memory-anchor__<tool_name>
+        if tool_name.startswith("mcp__memory-anchor__"):
+            return True
+
+        # 直接使用工具名（内部调用）
+        if tool_name in HIGH_RISK_OPERATIONS:
+            return True
+
+        # 检查 propose_constitution_change
+        if tool_name == "propose_constitution_change":
+            return True
+
+        return False
+
+    def _extract_tool_name(self, tool_name: str) -> str:
+        """提取实际工具名"""
+        if tool_name.startswith("mcp__memory-anchor__"):
+            return tool_name.replace("mcp__memory-anchor__", "")
+        return tool_name
+
+    def execute(self, context: HookContext) -> HookResult:
+        """执行门控检查"""
+        tool_name = self._extract_tool_name(context.tool_name or "")
+        arguments = context.tool_input
+        user_message = context.user_message
+
+        # 评估风险
+        risk_level, description = evaluate_risk(tool_name, arguments)
+
+        # 无风险操作直接放行
+        if risk_level is None:
+            return HookResult.allow()
+
+        # 类型断言
+        assert description is not None
+
+        # 有风险操作，检查是否有确认
+        has_confirmation = is_confirmation_present(user_message)
+
+        if has_confirmation:
+            # 有确认，放行但记录
+            log_high_risk_attempt(
+                tool_name, arguments, risk_level, description,
+                blocked=False, reason="用户已确认"
+            )
+            return HookResult.allow(reason="用户已确认")
+
+        # 无确认，阻止并要求确认
+        confirmation_message = _build_confirmation_message(
+            tool_name, arguments, risk_level, description
+        )
+
+        log_high_risk_attempt(
+            tool_name, arguments, risk_level, description,
+            blocked=True, reason="需要用户确认"
+        )
+
+        return HookResult.block(
+            reason=f"高风险操作需要确认: {description}",
+            message=confirmation_message
+        )
+
+
+# === 兼容旧 API ===
+
+def gate_operation(
+    tool_name: str,
+    arguments: dict[str, Any],
+    user_message: str | None = None,
+) -> dict[str, Any]:
+    """
+    高风险操作门控（兼容旧 API）
+
+    Args:
+        tool_name: MCP 工具名
+        arguments: 工具参数
+        user_message: 用户最近的消息（用于检查确认短语）
+
+    Returns:
+        {
+            "allowed": bool,
+            "reason": str | None,
+            "requires_confirmation": bool,
+            "confirmation_message": str | None,
+        }
+    """
+    # 使用新的 Hook 框架
+    hook = GatingHook()
+    context = HookContext(
+        hook_type=HookType.PRE_TOOL_USE,
+        tool_name=tool_name,
+        tool_input=arguments,
+        user_message=user_message
+    )
+
+    result = hook.execute(context)
+
+    # 转换为旧 API 格式
+    return {
+        "allowed": result.decision != HookDecision.BLOCK,
+        "reason": result.reason,
+        "requires_confirmation": result.decision == HookDecision.BLOCK,
+        "confirmation_message": result.message if result.decision == HookDecision.BLOCK else None,
+    }
+
+
 # === Claude Code Hook 入口 ===
 
 
@@ -255,30 +326,36 @@ def main():
 
         tool_name = input_data.get("tool_name", "")
         tool_input = input_data.get("tool_input", {})
+        session_id = input_data.get("session_id")
 
-        # 只处理 memory-anchor 相关工具
-        # MCP 工具名格式: mcp__memory-anchor__<tool_name>
-        if not (tool_name.startswith("mcp__memory-anchor__") or tool_name in HIGH_RISK_OPERATIONS):
+        # 创建上下文
+        context = HookContext(
+            hook_type=HookType.PRE_TOOL_USE,
+            tool_name=tool_name,
+            tool_input=tool_input,
+            session_id=session_id
+        )
+
+        # 使用 GatingHook
+        hook = GatingHook()
+
+        # 检查是否应该执行
+        if not hook.should_run(context):
             # 不是 memory-anchor 工具，直接放行
             print(json.dumps({}))
             sys.exit(0)
 
-        # 提取实际工具名
-        actual_tool_name = tool_name
-        if tool_name.startswith("mcp__memory-anchor__"):
-            actual_tool_name = tool_name.replace("mcp__memory-anchor__", "")
+        # 执行门控检查
+        result = hook.execute(context)
 
-        # 评估风险
-        result = gate_operation(actual_tool_name, tool_input)
-
-        if result["allowed"]:
+        if result.decision != HookDecision.BLOCK:
             # 允许执行
             print(json.dumps({}))
         else:
             # 阻止执行
             output = {
                 "decision": "block",
-                "reason": result["confirmation_message"] or result["reason"],
+                "reason": result.message or result.reason,
             }
             print(json.dumps(output))
 

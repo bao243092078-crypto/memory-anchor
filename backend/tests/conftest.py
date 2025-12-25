@@ -165,3 +165,10 @@ def _reset_all_singletons():
         mr._refiner = None
     except (ImportError, AttributeError):
         pass
+
+    # Reset HookRegistry
+    try:
+        from backend.hooks.registry import reset_hook_registry
+        reset_hook_registry()
+    except (ImportError, AttributeError):
+        pass
