@@ -1,0 +1,97 @@
+# Test Mapping Rules - 测试映射规则
+# Phase 5: PostToolUse + 测试建议
+#
+# 用途：根据修改的源文件自动建议相关测试
+#
+# 规则格式：
+#   pattern: 源文件的 glob 模式
+#   test_pattern: 测试文件模式（支持占位符）
+#   priority: 优先级（越大越优先）
+#   description: 规则描述
+#
+# 占位符：
+#   {basename}: 文件名（不含扩展名）
+#   {dirname}: 目录名
+#   {ext}: 扩展名
+
+version: 1
+
+# 默认测试命令
+fallback_command: "uv run pytest"
+
+rules:
+  # Python 后端规则
+  - pattern: "backend/**/*.py"
+    test_pattern: "backend/tests/test_{basename}.py"
+    priority: 10
+    description: "后端 Python 模块 → backend/tests/"
+
+  - pattern: "backend/hooks/*.py"
+    test_pattern: "backend/tests/test_{basename}.py"
+    priority: 20
+    description: "Hook 模块 → 对应测试文件"
+
+  - pattern: "backend/services/*.py"
+    test_pattern: "backend/tests/test_{basename}.py"
+    priority: 20
+    description: "服务模块 → 对应测试文件"
+
+  - pattern: "backend/core/*.py"
+    test_pattern: "backend/tests/test_{basename}.py"
+    priority: 20
+    description: "核心模块 → 对应测试文件"
+
+  - pattern: "backend/api/*.py"
+    test_pattern: "backend/tests/test_api_{basename}.py"
+    priority: 15
+    description: "API 路由 → test_api_*.py"
+
+  - pattern: "backend/models/*.py"
+    test_pattern: "backend/tests/test_{basename}.py"
+    priority: 15
+    description: "数据模型 → 对应测试文件"
+
+  - pattern: "backend/cli/*.py"
+    test_pattern: "backend/tests/test_cli_{basename}.py"
+    priority: 15
+    description: "CLI 命令 → test_cli_*.py"
+
+  # 配置文件特殊处理
+  - pattern: "backend/config.py"
+    test_pattern: "backend/tests/test_config*.py"
+    priority: 25
+    description: "配置模块 → 所有配置相关测试"
+
+  # MCP 入口
+  - pattern: "backend/mcp_memory.py"
+    test_pattern: "backend/tests/test_mcp*.py"
+    priority: 25
+    description: "MCP 入口 → MCP 相关测试"
+
+  # 前端规则（React + TypeScript）
+  - pattern: "frontend/**/components/**/*.tsx"
+    test_pattern: "frontend/**/__tests__/{basename}.test.tsx"
+    priority: 10
+    description: "React 组件 → __tests__/"
+
+  - pattern: "frontend/**/hooks/**/*.ts"
+    test_pattern: "frontend/**/__tests__/{basename}.test.ts"
+    priority: 10
+    description: "React Hooks → __tests__/"
+
+  - pattern: "frontend/**/api/**/*.ts"
+    test_pattern: "frontend/**/__tests__/{basename}.test.ts"
+    priority: 10
+    description: "API 客户端 → __tests__/"
+
+# 排除规则（不生成测试建议的文件）
+exclude_patterns:
+  - "**/__pycache__/**"
+  - "**/*.pyc"
+  - "**/node_modules/**"
+  - "**/.git/**"
+  - "**/conftest.py"
+  - "**/test_*.py"
+  - "**/*_test.py"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"

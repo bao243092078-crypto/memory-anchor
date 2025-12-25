@@ -6,12 +6,7 @@
 
 ### Harness 增强（学习 claude-code-harness）
 
-**Phase 5: PostToolUse + 测试建议（P2）** ⬅️ 当前
-- [ ] 文件修改检测
-- [ ] 测试映射规则（.ai/test-mapping.yaml）
-- [ ] 生成测试建议
-
-**Phase 6: 测试篡改检测（P3）**
+**Phase 6: 测试篡改检测（P3）** ⬅️ 当前
 - [ ] L1: CLAUDE.md 测试红线规则
 - [ ] L2: .ai/operations/sop-test-quality.md
 - [ ] L3: PreToolUse hook 自动检测
@@ -22,6 +17,13 @@
 - [ ] 并行执行 + 报告生成
 
 ## 已完成
+
+- [x] PostToolUse + 测试建议（Phase 5）（2025-12-25）
+  - [x] 文件修改检测（PostToolHook 增强）
+  - [x] 测试映射规则（.ai/test-mapping.yaml）
+  - [x] 创建 TestMappingService（规则解析 + 模式展开）
+  - [x] 生成测试建议（置信度分级 + 命令生成）
+  - [x] 57 个测试全部通过（27 TestMappingService + 13 PostToolHook 集成 + 17 现有）
 
 - [x] 阈值可配置（Phase 4）（2025-12-25）
   - [x] 添加 7 个阈值配置字段到 MemoryAnchorConfig

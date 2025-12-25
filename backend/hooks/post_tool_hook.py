@@ -2,10 +2,10 @@
 """
 Memory Anchor PostToolUse Hook - 工具执行后处理
 
-当前实现：
+Phase 5 增强版：
 1. 记录工具执行结果
 2. 检测文件修改操作
-3. （Phase 5 扩展）生成测试建议
+3. 生成测试建议（使用 TestMappingService）
 
 用法：
     from backend.hooks import get_hook_registry, PostToolHook
@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from backend.hooks.base import (
     BaseHook,
@@ -27,6 +27,9 @@ from backend.hooks.base import (
     HookResult,
     HookType,
 )
+
+if TYPE_CHECKING:
+    from backend.services.test_mapping import TestMappingService, TestSuggestion
 
 logger = logging.getLogger(__name__)
 
@@ -95,15 +98,38 @@ def is_source_file(file_path: str) -> bool:
 class PostToolHook(BaseHook):
     """PostToolUse Hook - 工具执行后处理
 
-    职责：
+    Phase 5 增强版职责：
     1. 记录文件修改历史
     2. 检测测试文件修改
-    3. （Phase 5）根据文件修改推荐测试
+    3. 根据文件修改生成测试建议（使用 TestMappingService）
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        enable_test_suggestions: bool = True,
+        project_root: Optional[Path] = None,
+    ):
+        """初始化 PostToolHook
+
+        Args:
+            enable_test_suggestions: 是否启用测试建议功能
+            project_root: 项目根目录（用于 TestMappingService）
+        """
         self._modified_files: list[dict[str, Any]] = []
         self._memory_operations: list[dict[str, Any]] = []
+        self._test_suggestions: list["TestSuggestion"] = []
+        self._enable_test_suggestions = enable_test_suggestions
+        self._project_root = project_root
+        self._test_mapping_service: Optional["TestMappingService"] = None
+
+    def _get_test_mapping_service(self) -> "TestMappingService":
+        """延迟获取 TestMappingService"""
+        if self._test_mapping_service is None:
+            from backend.services.test_mapping import get_test_mapping_service
+            self._test_mapping_service = get_test_mapping_service(
+                project_root=self._project_root
+            )
+        return self._test_mapping_service
 
     @property
     def hook_type(self) -> HookType:
@@ -169,15 +195,66 @@ class PostToolHook(BaseHook):
         # 检测源文件修改但没有对应测试修改
         source_files = [f for f in files if is_source_file(f) and not is_test_file(f)]
 
-        if source_files:
-            # Phase 5 会实现完整的测试建议逻辑
-            # 目前只返回通知
-            return HookResult.notify(
-                message=f"Modified source files: {', '.join(source_files)}",
-                reason="file_modification_detected",
-            )
+        if source_files and self._enable_test_suggestions:
+            # Phase 5: 生成测试建议
+            try:
+                service = self._get_test_mapping_service()
+                suggestions = service.suggest_tests(source_files)
+                self._test_suggestions.extend(suggestions)
+
+                # 格式化消息
+                message = self._format_test_suggestion_message(source_files, suggestions)
+                return HookResult.notify(
+                    message=message,
+                    reason="test_suggestion_generated",
+                )
+            except Exception as e:
+                logger.warning(f"Failed to generate test suggestions: {e}")
+                return HookResult.notify(
+                    message=f"Modified source files: {', '.join(source_files)}",
+                    reason="file_modification_detected",
+                )
 
         return HookResult.allow()
+
+    def _format_test_suggestion_message(
+        self,
+        source_files: list[str],
+        suggestions: list["TestSuggestion"],
+    ) -> str:
+        """格式化测试建议消息"""
+        if not suggestions:
+            return f"Modified source files: {', '.join(source_files)}"
+
+        lines = [
+            "📋 **文件修改检测**",
+            f"修改了 {len(source_files)} 个源文件",
+            "",
+            "**建议运行的测试**:",
+        ]
+
+        for suggestion in suggestions:
+            confidence_emoji = (
+                "🟢" if suggestion.confidence >= 0.7
+                else "🟡" if suggestion.confidence >= 0.5
+                else "🔴"
+            )
+            for test in suggestion.suggested_tests[:3]:  # 最多显示 3 个
+                lines.append(f"  {confidence_emoji} `{test}`")
+
+            if len(suggestion.suggested_tests) > 3:
+                lines.append(f"  ... 还有 {len(suggestion.suggested_tests) - 3} 个")
+
+        # 生成命令建议
+        try:
+            service = self._get_test_mapping_service()
+            command = service.generate_test_command(source_files)
+            lines.append("")
+            lines.append(f"**运行命令**: `{command}`")
+        except Exception:
+            pass
+
+        return "\n".join(lines)
 
     def _handle_memory_operation(
         self,
@@ -208,13 +285,18 @@ class PostToolHook(BaseHook):
         """获取本次会话的 memory 操作列表"""
         return list(self._memory_operations)
 
+    def get_test_suggestions(self) -> list["TestSuggestion"]:
+        """获取本次会话的测试建议列表"""
+        return list(self._test_suggestions)
+
     def clear_history(self) -> None:
         """清除历史记录"""
         self._modified_files.clear()
         self._memory_operations.clear()
+        self._test_suggestions.clear()
 
     def get_session_summary(self) -> dict[str, Any]:
-        """生成会话摘要"""
+        """生成会话摘要（Phase 5 增强版）"""
         source_files = [
             f["file"]
             for f in self._modified_files
@@ -222,15 +304,24 @@ class PostToolHook(BaseHook):
         ]
         test_files = [f["file"] for f in self._modified_files if f["is_test"]]
 
+        # 收集测试建议
+        suggested_tests: list[str] = []
+        for suggestion in self._test_suggestions:
+            if suggestion.confidence >= 0.5:
+                suggested_tests.extend(suggestion.suggested_tests)
+        suggested_tests = list(dict.fromkeys(suggested_tests))  # 去重
+
         return {
             "total_modifications": len(self._modified_files),
             "source_files_modified": len(source_files),
             "test_files_modified": len(test_files),
             "memory_operations": len(self._memory_operations),
+            "test_suggestions_count": len(self._test_suggestions),
             "files": {
                 "source": source_files,
                 "test": test_files,
             },
+            "suggested_tests": suggested_tests,
         }
 
 
