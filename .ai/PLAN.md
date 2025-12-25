@@ -6,12 +6,7 @@
 
 ### Harness 增强（学习 claude-code-harness）
 
-**Phase 2: 状态文件结构化（P1）** ⬅️ 当前
-- [ ] 创建 `.claude/state/` 目录结构
-- [ ] 实现 `session.json` 会话元数据
-- [ ] 实现 `test-recommendation.json` 测试建议
-
-**Phase 3: Stop Hook + Session 摘要（P1）**
+**Phase 3: Stop Hook + Session 摘要（P1）** ⬅️ 当前
 - [ ] Stop hook 生成会话摘要
 - [ ] 自动写入 Memory Anchor
 - [ ] 提取未完成任务
@@ -36,6 +31,13 @@
 - [ ] 并行执行 + 报告生成
 
 ## 已完成
+
+- [x] 状态文件结构化（Phase 2）（2025-12-25）
+  - [x] 创建 `backend/state/` 模块
+  - [x] 实现 `StateManager` 类（会话生命周期管理）
+  - [x] 实现 `SessionState` / `CoverageRecommendation` Pydantic 模型
+  - [x] 实现 `.claude/state/` 目录结构（session.json, test-recommendation.json, session-history/）
+  - [x] 30 个测试全部通过
 
 - [x] Hook 框架统一（Phase 1）（2025-12-25）
   - [x] 创建 `backend/hooks/base.py` - HookType 枚举 + BaseHook 抽象类
