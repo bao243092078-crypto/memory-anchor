@@ -9,10 +9,12 @@ Memory Anchor CLI - 命令行工具
 - memory-anchor sync-north-star: 同步北极星到宪法层
 - memory-anchor drift-check: 检查偏离度
 - memory-anchor review: 多视角代码审查
+- memory-anchor cloud: 云端同步命令（init/push/pull/status）
 """
 
 import typer
 
+from backend.cli.cloud_cmd import cloud_app
 from backend.cli.doctor_cmd import doctor_command
 from backend.cli.drift_cmd import drift_check_command
 from backend.cli.init_cmd import init_command
@@ -36,6 +38,7 @@ app.command(name="doctor", help="一键自诊断（红叉/端口/依赖/配置�
 app.command(name="sync-north-star", help="同步北极星到宪法层（L0）")(sync_north_star_command)
 app.command(name="drift-check", help="检查当前工作与北极星的偏离度")(drift_check_command)
 app.command(name="review", help="多视角代码审查（Security/Performance/Quality/Memory）")(review_command)
+app.add_typer(cloud_app, name="cloud", help="云端同步命令（push/pull/status）")
 
 
 def main():

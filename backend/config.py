@@ -36,6 +36,29 @@ DEFAULT_PROJECT_CONFIG_DIR = Path(".memory-anchor")
 
 
 @dataclass
+class CloudSyncConfig:
+    """云端同步配置"""
+    enabled: bool = False
+    provider: str = "s3"  # s3 | r2 | minio
+    bucket: str = ""
+    region: str = "us-east-1"
+    endpoint_url: Optional[str] = None  # MinIO/R2 自定义端点
+    prefix: str = ""  # 存储路径前缀
+
+    # 加密配置
+    encryption_enabled: bool = True
+    encryption_key_path: Path = field(default_factory=lambda: DEFAULT_GLOBAL_CONFIG_DIR / "encryption.key")
+
+    # 同步策略
+    auto_sync: bool = False  # 会话结束时自动同步
+    conflict_strategy: str = "lww"  # lww (Last-Write-Wins) | manual
+
+    # AWS 凭证（优先使用环境变量 AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY）
+    access_key_id: Optional[str] = None
+    secret_access_key: Optional[str] = None
+
+
+@dataclass
 class ConstitutionItem:
     """宪法层条目"""
     id: str
@@ -85,6 +108,9 @@ class MemoryAnchorConfig:
 
     # === 宪法层条目（从 yaml 加载） ===
     constitution: list[ConstitutionItem] = field(default_factory=list)
+
+    # === 云端同步配置 ===
+    cloud: CloudSyncConfig = field(default_factory=CloudSyncConfig)
 
     @property
     def collection_name(self) -> str:
@@ -150,6 +176,63 @@ def _load_yaml_config(path: Path) -> dict:
         raise ConfigLoadError(f"Failed to load config from {path}: {e}") from e
 
 
+def _load_cloud_config(merged: dict) -> CloudSyncConfig:
+    """
+    从合并后的配置字典加载云端同步配置。
+
+    Args:
+        merged: 已合并的配置字典
+
+    Returns:
+        CloudSyncConfig 对象
+    """
+    cloud_cfg = merged.get("cloud", {})
+
+    # 环境变量覆盖（MA_CLOUD_ 前缀）
+    env_overrides = {
+        "enabled": os.getenv("MA_CLOUD_ENABLED"),
+        "provider": os.getenv("MA_CLOUD_PROVIDER"),
+        "bucket": os.getenv("MA_CLOUD_BUCKET"),
+        "region": os.getenv("MA_CLOUD_REGION"),
+        "endpoint_url": os.getenv("MA_CLOUD_ENDPOINT_URL"),
+        "prefix": os.getenv("MA_CLOUD_PREFIX"),
+        "encryption_enabled": os.getenv("MA_CLOUD_ENCRYPTION_ENABLED"),
+        "encryption_key_path": os.getenv("MA_CLOUD_ENCRYPTION_KEY_PATH"),
+        "auto_sync": os.getenv("MA_CLOUD_AUTO_SYNC"),
+        "conflict_strategy": os.getenv("MA_CLOUD_CONFLICT_STRATEGY"),
+        "access_key_id": os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("MA_CLOUD_ACCESS_KEY_ID"),
+        "secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY") or os.getenv("MA_CLOUD_SECRET_ACCESS_KEY"),
+    }
+
+    for key, value in env_overrides.items():
+        if value is not None:
+            cloud_cfg[key] = value
+
+    # 布尔值转换
+    for bool_key in ("enabled", "encryption_enabled", "auto_sync"):
+        if bool_key in cloud_cfg and isinstance(cloud_cfg[bool_key], str):
+            cloud_cfg[bool_key] = cloud_cfg[bool_key].lower() in ("true", "1", "yes")
+
+    # Path 转换
+    if "encryption_key_path" in cloud_cfg and isinstance(cloud_cfg["encryption_key_path"], str):
+        cloud_cfg["encryption_key_path"] = Path(cloud_cfg["encryption_key_path"]).expanduser()
+
+    return CloudSyncConfig(
+        enabled=cloud_cfg.get("enabled", False),
+        provider=cloud_cfg.get("provider", "s3"),
+        bucket=cloud_cfg.get("bucket", ""),
+        region=cloud_cfg.get("region", "us-east-1"),
+        endpoint_url=cloud_cfg.get("endpoint_url"),
+        prefix=cloud_cfg.get("prefix", ""),
+        encryption_enabled=cloud_cfg.get("encryption_enabled", True),
+        encryption_key_path=cloud_cfg.get("encryption_key_path", DEFAULT_GLOBAL_CONFIG_DIR / "encryption.key"),
+        auto_sync=cloud_cfg.get("auto_sync", False),
+        conflict_strategy=cloud_cfg.get("conflict_strategy", "lww"),
+        access_key_id=cloud_cfg.get("access_key_id"),
+        secret_access_key=cloud_cfg.get("secret_access_key"),
+    )
+
+
 def _load_constitution_yaml(path: Path) -> list[ConstitutionItem]:
     """
     从 constitution.yaml 加载宪法层条目。
@@ -211,7 +294,7 @@ def load_config(
     global_config_dir = config_dir or DEFAULT_GLOBAL_CONFIG_DIR
 
     # 2. 确定项目 ID（优先级：参数 > 环境变量 > 默认）
-    project = project_id or os.getenv("MCP_MEMORY_PROJECT_ID", "default")
+    project: str = project_id or os.getenv("MCP_MEMORY_PROJECT_ID") or "default"
 
     # 3. 确定数据目录
     data_dir = global_config_dir / "projects" / project
@@ -227,9 +310,9 @@ def load_config(
     # 6. 合并配置（项目覆盖全局）
     merged = {**global_cfg, **project_cfg}
 
-    # 7. 环境变量覆盖（QDRANT_URL 默认 localhost:6333）
+    # 7. 环境变量覆盖（QDRANT_URL 无默认值，None 表示本地模式）
     env_overrides = {
-        "qdrant_url": os.getenv("QDRANT_URL", "http://127.0.0.1:6333"),
+        "qdrant_url": os.getenv("QDRANT_URL"),  # None = local mode
         "project_name": os.getenv("MCP_MEMORY_PROJECT_ID"),
         "llm_provider": os.getenv("LLM_PROVIDER"),
     }
@@ -283,8 +366,9 @@ def load_config(
         sqlite_path = local_sqlite if local_sqlite.exists() else (data_dir / "constitution_changes.db")
 
     # 8. 构建配置对象
+    project_name = merged.get("project_name") or project
     config = MemoryAnchorConfig(
-        project_name=merged.get("project_name", project),
+        project_name=project_name,
         project_type=merged.get("project_type", "ai-development"),
         data_dir=data_dir,
         qdrant_path=qdrant_path,
@@ -310,6 +394,8 @@ def load_config(
         todo_content_max_chars=merged.get("todo_content_max_chars", 50),
         checklist_max_items=merged.get("checklist_max_items", 20),
         memory_content_max_chars=merged.get("memory_content_max_chars", 500),
+        # 云端同步配置
+        cloud=_load_cloud_config(merged),
     )
 
     # 9. 加载宪法层条目
@@ -438,7 +524,9 @@ def create_default_constitution_yaml(path: Path, project_type: str = "ai-develop
 
 __all__ = [
     "MemoryAnchorConfig",
+    "CloudSyncConfig",
     "ConstitutionItem",
+    "ConfigLoadError",
     "get_config",
     "load_config",
     "reset_config",
