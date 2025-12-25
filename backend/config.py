@@ -74,6 +74,15 @@ class MemoryAnchorConfig:
     refiner_keep_recent: int = 3  # Observation Masking: 保留最近 N 条完整记忆
     refiner_max_tokens: int = 500  # 精炼输出的最大 token 数
 
+    # === 阈值配置（Phase 4） ===
+    plans_max_lines: int = 200  # PLAN.md 最大行数（超过则警告）
+    session_log_max_lines: int = 500  # 会话日志最大行数
+    summary_max_files: int = 5  # 会话摘要中显示的最大文件数
+    summary_max_todos: int = 5  # 会话摘要中显示的最大 TODO 数
+    todo_content_max_chars: int = 50  # TODO 内容最大字符数（截断）
+    checklist_max_items: int = 20  # 清单简报最大条目数
+    memory_content_max_chars: int = 500  # Memory Anchor 写入内容最大字符数
+
     # === 宪法层条目（从 yaml 加载） ===
     constitution: list[ConstitutionItem] = field(default_factory=list)
 
@@ -234,6 +243,25 @@ def load_config(
     if llm_enabled_env is not None:
         merged["llm_enabled"] = llm_enabled_env.lower() in ("true", "1", "yes")
 
+    # 阈值环境变量覆盖（MA_ 前缀，整数类型）
+    threshold_env_mapping = {
+        "plans_max_lines": "MA_PLANS_MAX_LINES",
+        "session_log_max_lines": "MA_SESSION_LOG_MAX_LINES",
+        "summary_max_files": "MA_SUMMARY_MAX_FILES",
+        "summary_max_todos": "MA_SUMMARY_MAX_TODOS",
+        "todo_content_max_chars": "MA_TODO_CONTENT_MAX_CHARS",
+        "checklist_max_items": "MA_CHECKLIST_MAX_ITEMS",
+        "memory_content_max_chars": "MA_MEMORY_CONTENT_MAX_CHARS",
+    }
+
+    for config_key, env_key in threshold_env_mapping.items():
+        env_value = os.getenv(env_key)
+        if env_value is not None:
+            try:
+                merged[config_key] = int(env_value)
+            except ValueError:
+                logger.warning(f"Invalid integer value for {env_key}: {env_value}")
+
     # qdrant_path 优先级：
     # 1) 显式配置（config.yaml / env）
     # 2) 默认使用全局项目数据目录（多项目隔离，避免 cwd 变化导致“换了个大脑”）
@@ -274,6 +302,14 @@ def load_config(
         llm_enabled=merged.get("llm_enabled", True),
         refiner_keep_recent=merged.get("refiner_keep_recent", 3),
         refiner_max_tokens=merged.get("refiner_max_tokens", 500),
+        # 阈值配置
+        plans_max_lines=merged.get("plans_max_lines", 200),
+        session_log_max_lines=merged.get("session_log_max_lines", 500),
+        summary_max_files=merged.get("summary_max_files", 5),
+        summary_max_todos=merged.get("summary_max_todos", 5),
+        todo_content_max_chars=merged.get("todo_content_max_chars", 50),
+        checklist_max_items=merged.get("checklist_max_items", 20),
+        memory_content_max_chars=merged.get("memory_content_max_chars", 500),
     )
 
     # 9. 加载宪法层条目

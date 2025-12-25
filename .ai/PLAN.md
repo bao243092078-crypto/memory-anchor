@@ -6,11 +6,7 @@
 
 ### Harness 增强（学习 claude-code-harness）
 
-**Phase 4: 阈值可配置（P2）** ⬅️ 当前
-- [ ] 添加环境变量：MA_PLANS_MAX_LINES, MA_SESSION_LOG_MAX_LINES 等
-- [ ] 修改 config.py 支持阈值配置
-
-**Phase 5: PostToolUse + 测试建议（P2）**
+**Phase 5: PostToolUse + 测试建议（P2）** ⬅️ 当前
 - [ ] 文件修改检测
 - [ ] 测试映射规则（.ai/test-mapping.yaml）
 - [ ] 生成测试建议
@@ -26,6 +22,13 @@
 - [ ] 并行执行 + 报告生成
 
 ## 已完成
+
+- [x] 阈值可配置（Phase 4）（2025-12-25）
+  - [x] 添加 7 个阈值配置字段到 MemoryAnchorConfig
+  - [x] 添加 MA_* 前缀环境变量覆盖（MA_PLANS_MAX_LINES 等）
+  - [x] 更新 StopHook 使用配置阈值
+  - [x] 添加 20 个阈值测试（默认值 + 环境变量 + YAML + 集成）
+  - [x] 45 个相关测试全部通过
 
 - [x] Stop Hook + Session 摘要（Phase 3）（2025-12-25）
   - [x] Stop hook 生成会话摘要（files/memory ops 统计）

@@ -27,6 +27,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from backend.config import get_config
 from backend.hooks.base import (
     BaseHook,
     HookContext,
@@ -387,6 +388,12 @@ class StopHook(BaseHook):
         memory_result: dict[str, Any] | None = None,
     ) -> str:
         """格式化摘要消息"""
+        # 获取阈值配置
+        config = get_config()
+        max_files = config.summary_max_files
+        max_todos = config.summary_max_todos
+        max_todo_chars = config.todo_content_max_chars
+
         stats = summary.get("statistics", {})
         files = summary.get("files", {})
         todos = summary.get("unfinished_tasks", [])
@@ -409,21 +416,21 @@ class StopHook(BaseHook):
         if source_files:
             lines.append("")
             lines.append("**修改的源文件**:")
-            for f in source_files[:5]:  # 最多显示 5 个
+            for f in source_files[:max_files]:
                 lines.append(f"  - {f}")
-            if len(source_files) > 5:
-                lines.append(f"  - ... 还有 {len(source_files) - 5} 个")
+            if len(source_files) > max_files:
+                lines.append(f"  - ... 还有 {len(source_files) - max_files} 个")
 
         # 未完成任务列表
         if todos:
             lines.append("")
             lines.append("**未完成任务 (TODO/FIXME)**:")
-            for todo in todos[:5]:  # 最多显示 5 个
+            for todo in todos[:max_todos]:
                 todo_type = todo.get("type", "TODO")
-                content = todo.get("content", "")[:50]  # 截断过长内容
+                content = todo.get("content", "")[:max_todo_chars]
                 lines.append(f"  - [{todo_type}] {content}")
-            if len(todos) > 5:
-                lines.append(f"  - ... 还有 {len(todos) - 5} 个")
+            if len(todos) > max_todos:
+                lines.append(f"  - ... 还有 {len(todos) - max_todos} 个")
 
         # 状态保存信息
         lines.append("")
