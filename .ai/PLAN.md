@@ -4,19 +4,23 @@
 
 ## 正在做
 
-### Harness 增强（学习 claude-code-harness）
-
-**Phase 6: 测试篡改检测（P3）** ⬅️ 当前
-- [ ] L1: CLAUDE.md 测试红线规则
-- [ ] L2: .ai/operations/sop-test-quality.md
-- [ ] L3: PreToolUse hook 自动检测
-
-**Phase 7: 多视角审查命令（P3）**
-- [ ] `/ma-review` CLI 命令
-- [ ] 四视角：Security/Performance/Quality/Memory Integrity
-- [ ] 并行执行 + 报告生成
+（无当前任务）
 
 ## 已完成
+
+- [x] 多视角审查命令（Phase 7）（2025-12-25）
+  - [x] `/ma review` CLI 命令（Typer + Rich UI）
+  - [x] 四视角并行审查：Security/Performance/Quality/Memory Integrity
+  - [x] 并行执行框架（ThreadPoolExecutor + 进度回调）
+  - [x] 报告生成器（terminal/markdown/json 三种格式）
+  - [x] 38 个测试全部通过
+
+- [x] 测试篡改检测（Phase 6）（2025-12-25）
+  - [x] L1: CLAUDE.md 测试红线规则（禁止模式定义）
+  - [x] L2: .ai/operations/sop-test-quality.md（SOP 文档）
+  - [x] L3: PreToolUse hook 自动检测（TestTamperingHook）
+  - [x] 5 种检测模式：assert 删除、无理由 skip、期望值修改、异常吞噬、边界测试删除
+  - [x] 29 个测试全部通过
 
 - [x] PostToolUse + 测试建议（Phase 5）（2025-12-25）
   - [x] 文件修改检测（PostToolHook 增强）
