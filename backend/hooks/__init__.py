@@ -32,10 +32,21 @@ from backend.hooks.gating_hook import (
     gate_operation,
     is_confirmation_present,
 )
+from backend.hooks.post_tool_hook import (
+    PostToolHook,
+    extract_modified_files,
+    is_source_file,
+    is_test_file,
+)
 from backend.hooks.registry import (
     HookRegistry,
     get_hook_registry,
     reset_hook_registry,
+)
+from backend.hooks.stop_hook import (
+    StopHook,
+    generate_session_summary,
+    save_session_summary,
 )
 
 __all__ = [
@@ -49,8 +60,17 @@ __all__ = [
     "HookRegistry",
     "get_hook_registry",
     "reset_hook_registry",
-    # Gating Hook
+    # Gating Hook (PreToolUse)
     "GatingHook",
     "gate_operation",
     "is_confirmation_present",
+    # PostToolUse Hook
+    "PostToolHook",
+    "extract_modified_files",
+    "is_source_file",
+    "is_test_file",
+    # Stop Hook
+    "StopHook",
+    "generate_session_summary",
+    "save_session_summary",
 ]
