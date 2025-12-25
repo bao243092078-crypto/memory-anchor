@@ -45,8 +45,10 @@ from backend.hooks.registry import (
 )
 from backend.hooks.stop_hook import (
     StopHook,
+    extract_todos_from_file,
+    extract_todos_from_files,
+    generate_memory_content,
     generate_session_summary,
-    save_session_summary,
 )
 
 __all__ = [
@@ -72,5 +74,7 @@ __all__ = [
     # Stop Hook
     "StopHook",
     "generate_session_summary",
-    "save_session_summary",
+    "generate_memory_content",
+    "extract_todos_from_file",
+    "extract_todos_from_files",
 ]
