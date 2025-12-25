@@ -68,6 +68,12 @@ class MemoryAnchorConfig:
     require_approval_threshold: float = 0.9
     approvals_needed: int = 3
 
+    # === LLM 配置（Memory Refiner 使用） ===
+    llm_provider: Optional[str] = None  # anthropic | openai | local
+    llm_enabled: bool = True  # 是否启用 LLM 精炼功能
+    refiner_keep_recent: int = 3  # Observation Masking: 保留最近 N 条完整记忆
+    refiner_max_tokens: int = 500  # 精炼输出的最大 token 数
+
     # === 宪法层条目（从 yaml 加载） ===
     constitution: list[ConstitutionItem] = field(default_factory=list)
 
@@ -212,15 +218,21 @@ def load_config(
     # 6. 合并配置（项目覆盖全局）
     merged = {**global_cfg, **project_cfg}
 
-    # 7. 环境变量覆盖
+    # 7. 环境变量覆盖（QDRANT_URL 默认 localhost:6333）
     env_overrides = {
-        "qdrant_url": os.getenv("QDRANT_URL"),
+        "qdrant_url": os.getenv("QDRANT_URL", "http://127.0.0.1:6333"),
         "project_name": os.getenv("MCP_MEMORY_PROJECT_ID"),
+        "llm_provider": os.getenv("LLM_PROVIDER"),
     }
 
     for key, value in env_overrides.items():
         if value:
             merged[key] = value
+
+    # LLM_ENABLED 环境变量特殊处理（布尔值）
+    llm_enabled_env = os.getenv("LLM_ENABLED")
+    if llm_enabled_env is not None:
+        merged["llm_enabled"] = llm_enabled_env.lower() in ("true", "1", "yes")
 
     # qdrant_path 优先级：
     # 1) 显式配置（config.yaml / env）
@@ -257,6 +269,11 @@ def load_config(
         session_expire_hours=merged.get("session_expire_hours", 24),
         require_approval_threshold=merged.get("require_approval_threshold", 0.9),
         approvals_needed=merged.get("approvals_needed", 3),
+        # LLM 配置
+        llm_provider=merged.get("llm_provider"),
+        llm_enabled=merged.get("llm_enabled", True),
+        refiner_keep_recent=merged.get("refiner_keep_recent", 3),
+        refiner_max_tokens=merged.get("refiner_max_tokens", 500),
     )
 
     # 9. 加载宪法层条目

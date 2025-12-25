@@ -151,3 +151,17 @@ def _reset_all_singletons():
         cls._checklist_service = None
     except (ImportError, AttributeError):
         pass
+
+    # Reset LLMProvider
+    try:
+        import backend.services.llm_provider as lp
+        lp._provider = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset MemoryRefiner
+    try:
+        import backend.services.memory_refiner as mr
+        mr._refiner = None
+    except (ImportError, AttributeError):
+        pass

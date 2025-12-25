@@ -633,7 +633,7 @@ def respond_with_memory(user_query, context):
 
 ---
 
-### MCP 工具速查（13 个工具）
+### MCP 工具速查（14 个工具）
 
 #### 核心工具
 | 工具 | 用途 | 何时调用 |
@@ -644,6 +644,7 @@ def respond_with_memory(user_query, context):
 | `propose_constitution_change` | 提议修改宪法层 (L0) | 需要修改核心身份时（需三次审批） |
 | `delete_memory` | 删除记忆 | 需要清理错误记忆时（需确认短语） |
 | `sync_to_files` | 同步到 .memos/ | 会话结束时 |
+| `refine_memory` | LLM 精炼/压缩记忆 (CoDA) | 记忆过多需压缩时 |
 
 #### L2 事件日志工具
 | 工具 | 用途 | 何时调用 |

@@ -689,6 +689,71 @@ Markdown 格式的清单简报，按优先级分组，包含 (ma:xxx) 引用 ID�
                 "required": ["query"],
             },
         ),
+        # ===== Memory Refiner 工具（基于 CoDA 上下文解耦）=====
+        Tool(
+            name="refine_memory",
+            description="""使用 LLM 精炼/压缩记忆（基于 CoDA 上下文解耦思想）。
+
+**核心思想**（来自 CoDA 论文）：
+- 在独立上下文中处理原始记忆，避免污染主 Agent 的上下文
+- 使用 Observation Masking 策略：保留最近 N 条完整内容，压缩更早的
+- 通过 LLM 提取关键决策、Bug 修复、架构选择等
+
+**用途**：
+- 当搜索返回大量记忆时，精炼为简洁摘要
+- 节省上下文 token，保留关键信息
+- 类似 CoDA Executor 的独立处理模式
+
+**工作流程**：
+1. 接收原始记忆列表
+2. 应用 Observation Masking（最近 3 条完整，更早的压缩）
+3. 调用 LLM 生成精炼摘要
+4. 返回压缩后的结果（含压缩比）
+
+**注意**：
+- 需要配置 LLM API Key（ANTHROPIC_API_KEY 或 OPENAI_API_KEY）
+- 无 API Key 时使用本地回退（简单截断）
+- 可通过 LLM_ENABLED=false 禁用此功能
+
+**示例**：
+- 搜索返回 10 条记忆 → 精炼为 500 token 摘要
+- 精炼焦点："key_decisions" / "bugs" / "all\"""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "当前用户查询（用于确定哪些记忆更相关）",
+                    },
+                    "memories": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "content": {"type": "string"},
+                                "layer": {"type": "string"},
+                                "score": {"type": "number"},
+                            },
+                        },
+                        "description": "原始记忆列表（来自 search_memory）",
+                    },
+                    "max_output_tokens": {
+                        "type": "integer",
+                        "default": 500,
+                        "minimum": 100,
+                        "maximum": 2000,
+                        "description": "输出的最大 token 数",
+                    },
+                    "focus": {
+                        "type": "string",
+                        "enum": ["key_decisions", "bugs", "all"],
+                        "default": "all",
+                        "description": "精炼焦点",
+                    },
+                },
+                "required": ["query", "memories"],
+            },
+        ),
     ]
 
 
@@ -726,6 +791,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
     # ===== L4 Operational Knowledge 工具（五层模型补全）=====
     elif name == "search_operations":
         return await _handle_search_operations(arguments)
+    # ===== Memory Refiner 工具（基于 CoDA 上下文解耦）=====
+    elif name == "refine_memory":
+        return await _handle_refine_memory(arguments)
     else:
         return [TextContent(type="text", text=f"未知工具: {name}")]
 
@@ -909,7 +977,7 @@ async def _handle_delete_memory(arguments: dict) -> Sequence[TextContent]:
     """
     from uuid import UUID
 
-    from backend.hooks.gating_hook import gate_operation, is_confirmation_present
+    from backend.hooks.gating_hook import gate_operation
     from backend.services.search import get_search_service
 
     note_id = arguments.get("note_id", "")
@@ -1624,6 +1692,90 @@ async def _handle_search_operations(arguments: dict) -> Sequence[TextContent]:
     return [TextContent(type="text", text="\n".join(output_lines))]
 
 
+async def _handle_refine_memory(arguments: dict[str, Any]) -> list[TextContent]:
+    """
+    处理 refine_memory 调用 - 使用 LLM 精炼/压缩记忆
+
+    基于 CoDA 上下文解耦思想：在独立上下文中处理原始记忆，
+    避免污染主 Agent 的上下文窗口。
+    """
+    from backend.config import get_config
+    from backend.services.memory_refiner import get_memory_refiner
+
+    query = arguments.get("query", "")
+    memories = arguments.get("memories", [])
+    max_output_tokens = arguments.get("max_output_tokens", 500)
+    focus = arguments.get("focus", "key_decisions")
+
+    # 检查 LLM 是否启用
+    config = get_config()
+    if not config.llm_enabled:
+        return [
+            TextContent(
+                type="text",
+                text="⚠️ LLM 精炼功能已禁用（LLM_ENABLED=false）。\n"
+                "如需启用，请设置环境变量 LLM_ENABLED=true",
+            )
+        ]
+
+    # 检查输入
+    if not memories:
+        return [
+            TextContent(
+                type="text",
+                text="⚠️ 未提供任何记忆内容。请传入 memories 数组。",
+            )
+        ]
+
+    # 调用 Memory Refiner
+    try:
+        refiner = get_memory_refiner()
+        result = await refiner.refine(
+            query=query,
+            memories=memories,
+            max_output_tokens=max_output_tokens,
+            focus=focus,
+        )
+
+        if not result.success:
+            return [
+                TextContent(
+                    type="text",
+                    text=f"❌ 记忆精炼失败: {result.error}\n\n"
+                    f"使用的模型: {result.llm_model}",
+                )
+            ]
+
+        # 格式化输出
+        output_lines = [
+            "✨ **记忆精炼完成**",
+            "",
+            "📊 压缩统计:",
+            f"   - 原始记忆数: {result.original_count}",
+            f"   - 原始 Token (估): {result.original_tokens}",
+            f"   - 精炼后 Token (估): {result.refined_tokens}",
+            f"   - 压缩比: {result.compression_ratio:.1%}",
+            f"   - 使用模型: {result.llm_model}",
+            "",
+            "---",
+            "",
+            "📝 **精炼后的内容:**",
+            "",
+            result.refined_content,
+        ]
+
+        return [TextContent(type="text", text="\n".join(output_lines))]
+
+    except Exception as e:
+        # MCP 直接返回错误给客户端，无需额外日志
+        return [
+            TextContent(
+                type="text",
+                text=f"❌ 记忆精炼发生错误: {str(e)}",
+            )
+        ]
+
+
 # === Resources ===
 
 
@@ -1681,13 +1833,17 @@ async def main():
     # 重置所有单例以确保使用最新的环境变量（MCP_MEMORY_PROJECT_ID）
     from backend.config import reset_config
     from backend.services.checklist_service import reset_checklist_service
+    from backend.services.llm_provider import reset_llm_provider
     from backend.services.memory import reset_memory_service
+    from backend.services.memory_refiner import reset_memory_refiner
     from backend.services.search import reset_search_service
 
     reset_config()
     reset_search_service()
     reset_memory_service()
     reset_checklist_service()
+    reset_llm_provider()
+    reset_memory_refiner()
 
     async with stdio_server() as (read_stream, write_stream):
         await server.run(

@@ -18,10 +18,10 @@ class TestMCPTools:
     """测试 MCP 工具定义"""
 
     @pytest.mark.asyncio
-    async def test_list_tools_returns_thirteen_tools(self):
-        """验证有十三个工具（五层模型完整 + 清单革命）"""
+    async def test_list_tools_returns_fourteen_tools(self):
+        """验证有十四个工具（五层模型完整 + 清单革命 + Memory Refiner）"""
         tools = await list_tools()
-        assert len(tools) == 13
+        assert len(tools) == 14
         tool_names = {t.name for t in tools}
         assert tool_names == {
             "search_memory",
@@ -40,6 +40,8 @@ class TestMCPTools:
             "get_checklist_briefing",
             "sync_plan_to_checklist",
             "create_checklist_item",
+            # Memory Refiner（基于 CoDA）
+            "refine_memory",
         }
 
     @pytest.mark.asyncio
