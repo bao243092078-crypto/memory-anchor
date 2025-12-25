@@ -387,6 +387,62 @@ Claude 内部执行：
 - **No destructive defaults**: Never auto-delete data
 - **Protected directories**: Don't manually edit `.memos/` or `.qdrant/`
 
+## 🔴 测试完整性红线规则（Test Integrity Red Lines）
+
+> **核心原则**：修复代码，而非修改测试来"通过"
+
+### 绝对禁止的测试修改
+
+| 禁止行为 | 说明 | 正确做法 |
+|---------|------|---------|
+| 删除 `assert` 语句 | 削弱测试覆盖 | 修复代码使 assert 通过 |
+| 添加 `@pytest.mark.skip` 无正当理由 | 跳过失败测试 | 修复代码或说明跳过原因 |
+| 修改期望值匹配实际错误值 | 掩盖 Bug | 修复代码产生正确值 |
+| 删除边界条件测试 | 忽略边缘情况 | 确保边界条件被正确处理 |
+| 放宽类型检查或异常断言 | 降低安全性 | 修复类型或异常处理 |
+
+### 允许的测试修改
+
+| 允许行为 | 条件 |
+|---------|------|
+| 添加新测试 | 增加覆盖率 ✅ |
+| 修复测试代码 Bug | 测试本身有逻辑错误 |
+| 更新期望值 | **接口变更时**，需说明原因 |
+| 添加 `@pytest.mark.skip` | **有 TODO 注释**说明修复计划 |
+| 重构测试代码 | 不改变测试逻辑 |
+
+### 检测模式（自动化 Hook 会检测）
+
+以下模式会触发警告：
+
+```python
+# 🔴 危险模式 1: 删除 assert
+- assert result == expected
++ # assert result == expected  # 删除或注释 assert
+
+# 🔴 危险模式 2: 无理由 skip
++ @pytest.mark.skip  # 无理由跳过
+  def test_critical_feature():
+
+# 🔴 危险模式 3: 修改期望值适应错误输出
+- assert calculate(10) == 100  # 正确值
++ assert calculate(10) == 99   # 改成错误的实际值
+
+# 🔴 危险模式 4: 捕获并忽略异常
++ try:
++     result = risky_operation()
++ except Exception:
++     pass  # 吞掉所有异常
+```
+
+### 违规处理
+
+1. **PreToolUse Hook** 会检测可疑的测试修改
+2. 触发警告后需要用户确认："这是有意为之吗？"
+3. 严重违规会被阻止执行
+
+**详细 SOP 见**: `.ai/operations/sop-test-quality.md`
+
 ## Code Organization Principles
 
 - **Sync core, async wrappers**: `MemoryKernel` is pure sync Python. FastAPI routes and MCP handlers wrap it with async.

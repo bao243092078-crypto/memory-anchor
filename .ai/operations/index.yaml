@@ -36,6 +36,18 @@ sops:
         - "恢复上下文"
       description: "会话开始时的标准流程"
 
+  # 代码质量
+  quality:
+    - id: test-quality
+      file: sop-test-quality.md
+      triggers:
+        - "测试篡改"
+        - "测试质量"
+        - "修改测试"
+        - "删除 assert"
+        - "跳过测试"
+      description: "测试完整性保护和篡改检测"
+
 # 快速匹配规则
 # AI 遇到以下关键词时，应检索对应 SOP
 quick_match:
@@ -44,3 +56,7 @@ quick_match:
   "pending": ["sop-memory-sync.md"]
   "会话开始": ["workflow-session-start.md"]
   "恢复上下文": ["workflow-session-start.md"]
+  "测试篡改": ["sop-test-quality.md"]
+  "测试质量": ["sop-test-quality.md"]
+  "修改测试": ["sop-test-quality.md"]
+  "删除 assert": ["sop-test-quality.md"]

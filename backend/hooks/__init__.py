@@ -50,6 +50,13 @@ from backend.hooks.stop_hook import (
     generate_memory_content,
     generate_session_summary,
 )
+from backend.hooks.test_tampering_hook import (
+    TestTamperingHook,
+    TamperingType,
+    TamperingSeverity,
+    TamperingDetection,
+    analyze_test_modification,
+)
 
 __all__ = [
     # Base
@@ -77,4 +84,10 @@ __all__ = [
     "generate_memory_content",
     "extract_todos_from_file",
     "extract_todos_from_files",
+    # Test Tampering Hook (PreToolUse)
+    "TestTamperingHook",
+    "TamperingType",
+    "TamperingSeverity",
+    "TamperingDetection",
+    "analyze_test_modification",
 ]
