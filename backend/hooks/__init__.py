@@ -51,12 +51,13 @@ from backend.hooks.stop_hook import (
     generate_session_summary,
 )
 from backend.hooks.test_tampering_hook import (
-    TestTamperingHook,
-    TamperingType,
-    TamperingSeverity,
     TamperingDetection,
+    TamperingSeverity,
+    TamperingType,
+    TestTamperingHook,
     analyze_test_modification,
 )
+from backend.hooks.checkpoint_hook import CheckpointHook
 
 __all__ = [
     # Base
@@ -90,4 +91,6 @@ __all__ = [
     "TamperingSeverity",
     "TamperingDetection",
     "analyze_test_modification",
+    # Checkpoint Hook (PreCompact)
+    "CheckpointHook",
 ]

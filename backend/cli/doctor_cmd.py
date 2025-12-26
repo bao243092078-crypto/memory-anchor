@@ -215,7 +215,7 @@ def _check_claude_config(path: Path) -> CheckResult:
                 return CheckResult(
                     name="MCP 配置",
                     ok=True,
-                    detail=f"已配置 memory-anchor（项目级 .mcp.json）",
+                    detail="已配置 memory-anchor（项目级 .mcp.json）",
                 )
         except Exception:
             pass  # 继续检查全局配置

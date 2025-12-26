@@ -113,7 +113,13 @@ def sync_north_star_command(
         north_star_path = path
         north_star_content = path.read_text(encoding="utf-8")
     else:
-        north_star_path, north_star_content = find_north_star()
+        found_path, found_content = find_north_star()
+        if found_path is None or found_content is None:
+            console.print("[yellow]未找到 NORTH_STAR.md 文件[/yellow]")
+            console.print("[dim]提示：在项目根目录创建 .ai/NORTH_STAR.md[/dim]")
+            raise typer.Exit(1)
+        north_star_path = found_path
+        north_star_content = found_content
 
     if not north_star_content:
         console.print("[yellow]未找到 NORTH_STAR.md 文件[/yellow]")
@@ -145,12 +151,11 @@ def sync_north_star_command(
         return
 
     # 4. 执行同步
-    from backend.config import get_config, reset_config
-    from backend.services.search import get_search_service
+    from backend.config import reset_config
     from backend.models.note import MemoryLayer
+    from backend.services.search import get_search_service
 
     reset_config()
-    config = get_config()
     search_service = get_search_service()
 
     # 检查是否已存在
@@ -184,8 +189,8 @@ def sync_north_star_command(
         is_active=True,
     )
 
-    console.print(f"\n[green]✅ 北极星已同步到宪法层[/green]")
-    console.print(f"[dim]下次调用 get_constitution() 时将自动加载[/dim]")
+    console.print("\n[green]✅ 北极星已同步到宪法层[/green]")
+    console.print("[dim]下次调用 get_constitution() 时将自动加载[/dim]")
 
 
 __all__ = ["sync_north_star_command"]

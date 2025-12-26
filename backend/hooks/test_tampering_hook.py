@@ -27,7 +27,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 from backend.hooks.base import (
     BaseHook,
@@ -69,6 +68,11 @@ class TamperingSeverity(Enum):
     CRITICAL = "critical"  # 阻止
     WARNING = "warning"    # 警告需确认
     INFO = "info"          # 仅通知
+
+    def __lt__(self, other: "TamperingSeverity") -> bool:
+        """Enable comparison for max() function."""
+        order = {"info": 0, "warning": 1, "critical": 2}
+        return order[self.value] < order[other.value]
 
 
 @dataclass

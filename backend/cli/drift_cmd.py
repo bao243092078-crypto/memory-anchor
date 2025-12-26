@@ -95,7 +95,7 @@ def drift_check_command(
     # 显示结果
     console.print()
     console.print(Panel.fit(
-        f"[bold]偏离度检查报告[/bold]",
+        "[bold]偏离度检查报告[/bold]",
         border_style="blue",
     ))
 

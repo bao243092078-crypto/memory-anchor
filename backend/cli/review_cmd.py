@@ -144,19 +144,19 @@ def review_command(
         import subprocess
 
         try:
-            result = subprocess.run(
+            git_result = subprocess.run(
                 ["git", "diff", "--cached"],
                 capture_output=True,
                 text=True,
                 cwd=target_path if target_path.is_dir() else target_path.parent,
             )
-            if result.returncode == 0:
-                context.diff_content = result.stdout
+            if git_result.returncode == 0:
+                context.diff_content = git_result.stdout
                 if not context.diff_content.strip():
                     console.print("[yellow]暂存区没有变更[/yellow]")
                     raise typer.Exit(0)
             else:
-                console.print(f"[red]Git diff 失败: {result.stderr}[/red]")
+                console.print(f"[red]Git diff 失败: {git_result.stderr}[/red]")
                 raise typer.Exit(1)
         except FileNotFoundError:
             console.print("[red]错误: 未安装 Git[/red]")

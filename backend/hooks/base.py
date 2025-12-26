@@ -22,18 +22,20 @@ from typing import Any
 class HookType(Enum):
     """Hook 类型枚举
 
-    基于 Claude Code 的 5 个 Hook 点位：
+    基于 Claude Code 的 6 个 Hook 点位：
     - PreToolUse: 工具调用前，可阻止执行
     - PostToolUse: 工具调用后，可添加提醒/建议
     - PermissionRequest: 权限请求时
     - SessionStart: 会话开始时，注入上下文
     - Stop: 会话结束时，生成摘要
+    - PreCompact: 上下文压缩前，保存运行时状态（关键！）
     """
     PRE_TOOL_USE = "PreToolUse"
     POST_TOOL_USE = "PostToolUse"
     PERMISSION_REQUEST = "PermissionRequest"
     SESSION_START = "SessionStart"
     STOP = "Stop"
+    PRE_COMPACT = "PreCompact"  # 上下文保护核心 Hook
 
 
 class HookDecision(Enum):
