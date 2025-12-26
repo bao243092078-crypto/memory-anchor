@@ -1,5 +1,10 @@
 # Memory Anchor 🧠⚓
 
+[![Tests](https://img.shields.io/badge/tests-469%20passed-brightgreen)](https://github.com/bao243092078-crypto/memory-anchor)
+[![Python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-14%20tools-purple)](https://modelcontextprotocol.io/)
+
 > **为什么叫"阿默斯海默症"？**
 >
 > 这是一个**隐喻**：把 AI 当作阿尔茨海默症患者来看待——能力很强，但有"记忆缺陷"。
@@ -253,7 +258,7 @@ AI（无 Memory Anchor）          AI（有 Memory Anchor）
 
 ```bash
 # 克隆仓库
-git clone https://github.com/baobao/memory-anchor.git
+git clone https://github.com/bao243092078-crypto/memory-anchor.git
 cd memory-anchor
 
 # 安装依赖
@@ -303,6 +308,7 @@ uv run ruff check backend
 
 **其他**
 - [x] Memory Refiner（CoDA 上下文解耦，refine_memory 工具）
+- [x] 全面类型安全（mypy strict, 经 GPT-5.2 xhigh 审核）
 
 ### 规划中 📋
 
@@ -328,4 +334,4 @@ uv run ruff check backend
 
 ---
 
-Made with ❤️ by [baobao](https://github.com/baobao)
+Made with ❤️ by [baobao](https://github.com/bao243092078-crypto)
