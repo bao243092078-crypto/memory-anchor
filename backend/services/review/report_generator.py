@@ -10,12 +10,11 @@ Report Generator - 审查报告生成器
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from backend.services.review.base import ReviewFinding, ReviewResult, Severity
+from backend.services.review.base import Severity
 from backend.services.review.runner import AggregatedResult
 
 
@@ -153,7 +152,7 @@ class ReportGenerator:
         lines.append("")
         lines.append(f"**状态**: {result.summary}")
         lines.append("")
-        lines.append(f"| 指标 | 值 |")
+        lines.append("| 指标 | 值 |")
         lines.append("|------|-----|")
         lines.append(f"| 耗时 | {result.total_duration:.2f}s |")
         lines.append(f"| 文件数 | {result.total_files} |")
@@ -246,7 +245,7 @@ class ReportGenerator:
         Returns:
             JSON 格式报告
         """
-        data = {
+        data: dict[str, Any] = {
             "generated_at": datetime.now().isoformat(),
             "summary": result.summary,
             "stats": {

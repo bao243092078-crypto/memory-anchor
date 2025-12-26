@@ -66,6 +66,8 @@ class McpMemoryServiceBackend(AbstractMemoryBackend):
     def client(self) -> httpx.AsyncClient:
         """延迟初始化 HTTP 客户端"""
         if self._client is None:
+            if not self.base_url:
+                raise ValueError("base_url must be set for MCP Memory Service backend")
             self._client = httpx.AsyncClient(
                 base_url=self.base_url,
                 timeout=self.timeout
@@ -95,7 +97,8 @@ class McpMemoryServiceBackend(AbstractMemoryBackend):
                 }
             )
             response.raise_for_status()
-            return response.json()
+            data: dict[str, object] = response.json()
+            return dict(data)
         except httpx.HTTPError as e:
             # 返回空结果而非抛异常，保持与 Qdrant 后端一致的行为
             return {"error": str(e), "success": False}
@@ -203,7 +206,7 @@ class McpMemoryServiceBackend(AbstractMemoryBackend):
             }
         })
 
-        return result.get("success", False)
+        return bool(result.get("success", False))
 
     async def _do_delete(self, memory_id: UUID) -> bool:
         """
@@ -219,7 +222,7 @@ class McpMemoryServiceBackend(AbstractMemoryBackend):
             "content_hash": str(memory_id)
         })
 
-        return result.get("success", False)
+        return bool(result.get("success", False))
 
     async def get_by_id(self, memory_id: UUID) -> Optional[MemoryItem]:
         """

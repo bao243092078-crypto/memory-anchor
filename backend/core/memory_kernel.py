@@ -337,7 +337,7 @@ class MemoryKernel:
                 source=source,
                 agent_id=agent_id if layer == MemoryLayer.EVENT_LOG.value else None,
                 expires_at=expires_at.isoformat() if expires_at else None,
-                priority=priority,
+                priority=priority if priority is not None else 0,
                 created_by=created_by_value,
             )
 
@@ -437,7 +437,8 @@ class MemoryKernel:
             是否成功
         """
         note_uuid = note_id if isinstance(note_id, UUID) else UUID(str(note_id))
-        return self.search.delete_note(note_uuid)
+        result = self.search.delete_note(note_uuid)
+        return bool(result)
 
     def update_memory_status(self, note_id: str | UUID, is_active: bool) -> bool:
         """
@@ -451,7 +452,8 @@ class MemoryKernel:
             是否成功
         """
         note_uuid = note_id if isinstance(note_id, UUID) else UUID(str(note_id))
-        return self.search.update_note_status(note_uuid, is_active)
+        result = self.search.update_note_status(note_uuid, is_active)
+        return bool(result)
 
     def get_stats(self) -> Dict[str, Any]:
         """
@@ -460,7 +462,8 @@ class MemoryKernel:
         Returns:
             统计信息：total_count, vector_size等
         """
-        return self.search.get_stats()
+        result = self.search.get_stats()
+        return dict(result)
 
     # ===== L1: Active Context (工作记忆) =====
 

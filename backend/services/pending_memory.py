@@ -7,15 +7,13 @@ Pending Memory Service - 待审批记忆管理服务
 3. 批准后移动到 Qdrant
 """
 
-import json
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from backend.config import get_config
-from backend.models.note import MemoryLayer
 
 # 数据库路径
 DB_PATH = get_config().sqlite_path
@@ -165,7 +163,7 @@ class PendingMemoryService:
         cursor = conn.cursor()
 
         query = "SELECT * FROM pending_memories WHERE status = 'pending'"
-        params = []
+        params: list[str | float | int] = []
 
         if layer:
             query += " AND layer = ?"

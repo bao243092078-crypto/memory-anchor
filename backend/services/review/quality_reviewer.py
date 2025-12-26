@@ -190,7 +190,6 @@ class QualityReviewer(BaseReviewer):
         func_pattern = re.compile(r"^\s*(async\s+)?def\s+(\w+)\s*\(")
         current_func = None
         current_func_start = 0
-        current_indent = 0
 
         for i, line in enumerate(lines):
             match = func_pattern.match(line)
@@ -213,7 +212,7 @@ class QualityReviewer(BaseReviewer):
 
                 current_func = match.group(2)
                 current_func_start = i
-                current_indent = len(line) - len(line.lstrip())
+                _current_indent = len(line) - len(line.lstrip())  # noqa: F841
 
         # 检查最后一个函数
         if current_func:

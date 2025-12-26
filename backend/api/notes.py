@@ -52,7 +52,13 @@ def _to_response(data: dict) -> NoteResponse:
 
     created_by = payload.get("source") or payload.get("created_by") or "caregiver"
 
-    created_at = payload.get("created_at") or datetime.now().isoformat()
+    raw_created_at = payload.get("created_at")
+    if raw_created_at is None:
+        created_at = datetime.now()
+    elif isinstance(raw_created_at, datetime):
+        created_at = raw_created_at
+    else:
+        created_at = datetime.fromisoformat(str(raw_created_at).replace("Z", "+00:00"))
 
     raw_is_active = payload.get("is_active")
     is_active = bool(raw_is_active) if raw_is_active is not None else True

@@ -121,7 +121,7 @@ def calculate_drift(
     level, emoji, message = get_drift_level(drift_percent)
 
     # 提取北极星摘要（第一个非空行或标题）
-    ns_lines = [l.strip() for l in north_star_content.split('\n') if l.strip()]
+    ns_lines = [line.strip() for line in north_star_content.split('\n') if line.strip()]
     ns_summary = ns_lines[0] if ns_lines else "（无内容）"
     if ns_summary.startswith('#'):
         ns_summary = ns_summary.lstrip('#').strip()

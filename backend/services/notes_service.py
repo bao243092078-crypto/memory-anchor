@@ -172,7 +172,7 @@ class NotesService:
                 payload["category"] = category.value if isinstance(category, NoteCategory) else str(category)
 
         if priority is not _UNSET and priority is not None:
-            payload["priority"] = int(priority)
+            payload["priority"] = int(priority) if isinstance(priority, (int, float, str)) else priority
 
         if expires_at is not _UNSET:
             if expires_at is None:

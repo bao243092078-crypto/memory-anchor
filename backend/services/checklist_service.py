@@ -262,8 +262,9 @@ class ChecklistService:
             items.sort(key=lambda x: x.priority.value)
             return items
 
-        except (ConnectionError, OSError) as e:
-            logger.warning("Failed to list checklist items: %s", e)
+        except (ConnectionError, OSError, ValueError) as e:
+            # ValueError: collection doesn't exist (no items created yet)
+            logger.debug("Failed to list checklist items: %s", e)
             return []
 
     def _payload_to_item(self, payload: dict) -> ChecklistItemResponse:
