@@ -102,15 +102,24 @@ class QdrantMemoryBackend(AbstractMemoryBackend):
                 return None
 
             point = points[0]
+            # Handle point.id which can be int | str | UUID
+            if isinstance(point.id, UUID):
+                point_id = point.id
+            else:
+                point_id = UUID(str(point.id))
+
+            # Handle payload which might be None
+            payload = point.payload or {}
+
             return MemoryItem(
-                id=UUID(point.id),
-                content=point.payload.get("content", ""),
-                layer=MemoryLayer(point.payload.get("layer", "fact")),
-                category=MemoryCategory(point.payload["category"]) if point.payload.get("category") else None,
-                confidence=point.payload.get("confidence", 1.0),
+                id=point_id,
+                content=payload.get("content", ""),
+                layer=MemoryLayer(payload.get("layer", "fact")),
+                category=MemoryCategory(payload["category"]) if payload.get("category") else None,
+                confidence=payload.get("confidence", 1.0),
                 score=1.0,
-                source=point.payload.get("source"),
-                metadata=point.payload
+                source=payload.get("source"),
+                metadata=payload
             )
         except Exception:
             return None

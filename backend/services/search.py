@@ -18,7 +18,7 @@ Search service for Memory Anchor.
 """
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional, Union
 from uuid import UUID
 
 from qdrant_client import QdrantClient
@@ -327,10 +327,13 @@ class SearchService:
         query_vector = embed_text(query)
 
         # 转换 MemoryLayer 枚举为字符串（如果需要）
-        layer_str = str(layer.value) if hasattr(layer, 'value') else layer
+        layer_str: str | None = None
+        if layer is not None:
+            layer_str = str(layer.value) if hasattr(layer, 'value') else layer
 
         # 构建过滤条件
-        must_conditions = []
+        # Use Union type to allow both FieldCondition and Filter in the list
+        must_conditions: list[Union[FieldCondition, Filter]] = []
 
         if only_active:
             must_conditions.append(
@@ -366,7 +369,8 @@ class SearchService:
             )
         )
 
-        query_filter = Filter(must=must_conditions) if must_conditions else None
+        # Qdrant Filter type is complex; use type ignore for invariant list issue
+        query_filter = Filter(must=must_conditions) if must_conditions else None  # type: ignore[arg-type]
 
         # 使用新版 Qdrant API: query_points
         results = self.client.query_points(
@@ -376,29 +380,31 @@ class SearchService:
             limit=limit,
         )
 
-        return [
-            {
+        output_list: list[dict[str, Any]] = []
+        for r in results.points:
+            # Handle payload which might be None
+            payload = r.payload or {}
+            output_list.append({
                 "id": r.id,
-                "content": r.payload.get("content", ""),
+                "content": payload.get("content", ""),
                 "score": min(1.0, max(0.0, r.score)),  # clamp to [0, 1]
-                "layer": r.payload.get("layer"),
-                "category": r.payload.get("category"),
-                "is_active": r.payload.get("is_active", True),
-                "confidence": r.payload.get("confidence"),
-                "source": r.payload.get("source"),
-                "created_by": r.payload.get("created_by"),
-                "priority": r.payload.get("priority"),
-                "agent_id": r.payload.get("agent_id"),
-                "created_at": r.payload.get("created_at"),
-                "expires_at": r.payload.get("expires_at"),
-                "last_verified": r.payload.get("last_verified"),
+                "layer": payload.get("layer"),
+                "category": payload.get("category"),
+                "is_active": payload.get("is_active", True),
+                "confidence": payload.get("confidence"),
+                "source": payload.get("source"),
+                "created_by": payload.get("created_by"),
+                "priority": payload.get("priority"),
+                "agent_id": payload.get("agent_id"),
+                "created_at": payload.get("created_at"),
+                "expires_at": payload.get("expires_at"),
+                "last_verified": payload.get("last_verified"),
                 # L2 情景记忆特有字段
-                "event_when": r.payload.get("event_when"),
-                "event_where": r.payload.get("event_where"),
-                "event_who": r.payload.get("event_who"),
-            }
-            for r in results.points
-        ]
+                "event_when": payload.get("event_when"),
+                "event_where": payload.get("event_where"),
+                "event_who": payload.get("event_who"),
+            })
+        return output_list
 
     def list_notes(
         self,
@@ -424,7 +430,8 @@ class SearchService:
         Returns:
             列表结果，包含 id, content, layer, category 等 payload 字段
         """
-        must_conditions = []
+        # Use Union type to allow both FieldCondition and Filter in the list
+        must_conditions: list[Union[FieldCondition, Filter]] = []
 
         if only_active:
             must_conditions.append(
@@ -452,7 +459,8 @@ class SearchService:
             )
         )
 
-        scroll_filter = Filter(must=must_conditions) if must_conditions else None
+        # Qdrant Filter type is complex; use type ignore for invariant list issue
+        scroll_filter = Filter(must=must_conditions) if must_conditions else None  # type: ignore[arg-type]
         records, _ = self.client.scroll(
             collection_name=self.collection_name,
             scroll_filter=scroll_filter,
@@ -542,15 +550,15 @@ class SearchService:
         merged.pop("id", None)
 
         created_at = merged.get("created_at")
-        if hasattr(created_at, "isoformat"):
+        if isinstance(created_at, datetime):
             created_at = created_at.isoformat()
 
         expires_at = merged.get("expires_at")
-        if hasattr(expires_at, "isoformat"):
+        if isinstance(expires_at, datetime):
             expires_at = expires_at.isoformat()
 
         last_verified = merged.get("last_verified")
-        if hasattr(last_verified, "isoformat"):
+        if isinstance(last_verified, datetime):
             last_verified = last_verified.isoformat()
 
         confidence = merged.get("confidence")
@@ -621,10 +629,22 @@ class SearchService:
             统计信息，包含 total_count, vector_size, collection_name, mode 等
         """
         info = self.client.get_collection(self.collection_name)
+        vectors = info.config.params.vectors
+        # Handle different vector config types
+        vector_size: int | None = None
+        distance_value: str | None = None
+        if isinstance(vectors, VectorParams):
+            vector_size = vectors.size
+            distance_value = vectors.distance.value
+        elif isinstance(vectors, dict) and vectors:
+            # Named vectors - get the first one
+            first_vector = next(iter(vectors.values()))
+            vector_size = first_vector.size
+            distance_value = first_vector.distance.value
         return {
             "total_count": info.points_count,
-            "vector_size": info.config.params.vectors.size,
-            "distance": info.config.params.vectors.distance.value,
+            "vector_size": vector_size,
+            "distance": distance_value,
             "collection_name": self.collection_name,
             "mode": self.mode,
             "project_name": self._config.project_name,

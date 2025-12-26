@@ -33,6 +33,7 @@ from mcp.types import (
     TextContent,
     Tool,
 )
+from pydantic import AnyUrl
 
 from backend.models.checklist import (
     ChecklistBriefingRequest,
@@ -1384,7 +1385,7 @@ async def _handle_sync_plan_to_checklist(arguments: dict) -> Sequence[TextConten
         if result.created:
             output += f"📝 新建清单项 ({len(result.created)} 项):\n"
             for item in result.created:
-                output += f"  - {item['content']} {item['ma_ref']}\n"
+                output += f"  - {item.content} {item.ma_ref}\n"
             output += "\n"
 
         if result.warnings:
@@ -1784,13 +1785,13 @@ async def list_resources() -> list[Resource]:
     """列出可用资源"""
     return [
         Resource(
-            uri="memory://constitution",
+            uri=AnyUrl("memory://constitution"),
             name="患者宪法层记忆",
             description="患者的核心身份信息，包括姓名、家人、用药等",
             mimeType="text/plain",
         ),
         Resource(
-            uri="memory://recent",
+            uri=AnyUrl("memory://recent"),
             name="最近记忆",
             description="最近添加的记忆（会话层 + 近期事实层）",
             mimeType="text/plain",
