@@ -80,3 +80,14 @@ qdrant_storage/
 
 # Temporary research files
 研究md
+
+# === 四区分离架构 ===
+# AI区 - 只忽略临时文件，保留核心文档 (NORTH_STAR.md, PLAN.md, operations/)
+.ai/backups/
+.ai/conversations/
+.ai/drafts/
+.ai/cache/
+# 数据区 - 日志、临时文件、数据库
+.data/
+# Node依赖
+node_modules/
