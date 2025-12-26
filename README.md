@@ -84,6 +84,29 @@ memory-anchor doctor --project my-project
 ./ma doctor --project my-project
 ```
 
+### 云端同步
+
+```bash
+# 初始化云端配置（S3/R2/MinIO）
+./ma cloud init --provider s3 --bucket my-memories --region us-west-2
+
+# 推送记忆到云端（自动加密）
+./ma cloud push --project my-project
+
+# 从云端拉取记忆
+./ma cloud pull --project my-project --strategy lww
+
+# 查看同步状态
+./ma cloud status --project my-project
+```
+
+### 代码审查
+
+```bash
+# 多视角代码审查（Security/Performance/Quality/Memory Integrity）
+./ma review --project my-project --paths backend/
+```
+
 ## 五层认知记忆模型
 
 基于认知科学的 AI 记忆架构：
@@ -106,7 +129,7 @@ memory-anchor doctor --project my-project
 | 🔵 L3 | `verified_fact` | 长期决策记忆，上下文压缩后可召回 |
 | ⚪ L4 | `operational_knowledge` | "如何做"的操作手册 |
 
-## MCP 工具
+## MCP 工具（14 个）
 
 ### 核心工具
 
@@ -116,6 +139,8 @@ memory-anchor doctor --project my-project
 | `add_memory` | 添加新记忆（任务完成后存档） |
 | `get_constitution` | 获取身份图式（每会话自动加载） |
 | `propose_constitution_change` | 提议修改核心信息（需三次审批） |
+| `delete_memory` | 删除记忆（需确认短语） |
+| `refine_memory` | LLM 精炼/压缩记忆（CoDA 上下文解耦） |
 
 ### 清单革命
 
@@ -218,9 +243,11 @@ AI（无 Memory Anchor）          AI（有 Memory Anchor）
 
 - **后端**: Python 3.12 + FastAPI + Pydantic
 - **向量数据库**: Qdrant（本地/远程）
-- **嵌入模型**: FastEmbed (all-MiniLM-L6-v2)
+- **嵌入模型**: FastEmbed (paraphrase-multilingual-MiniLM-L12-v2)
 - **MCP**: Model Context Protocol
 - **CLI**: Typer + Rich
+- **云存储**: boto3（S3/R2/MinIO）
+- **加密**: cryptography（AES-256-GCM）
 
 ## 开发
 
@@ -246,26 +273,42 @@ uv run ruff check backend
 
 ### 已完成 ✅
 
+**核心功能**
 - [x] 五层认知记忆模型（L0-L4 完整）
-- [x] MCP Server 集成（13 个工具）
-- [x] CLI 工具（init/serve/doctor）
+- [x] MCP Server 集成（14 个工具）
+- [x] CLI 工具（init/serve/doctor/review）
 - [x] 身份图式三次审批机制 (L0)
 - [x] 事件日志 (L2 Event Log)
 - [x] 语义记忆 (L3 Verified Fact)
-- [x] **操作性知识 (L4 search_operations)** ← 新增
+- [x] 操作性知识 (L4 search_operations)
 - [x] 清单革命（ChecklistService）
-- [x] 高风险操作 Gating Hook
 - [x] 北极星对齐系统
 
-### 进行中 🚧
+**Hook 系统（Phase 1-8）**
+- [x] Hook 框架统一（HookType + BaseHook + Registry）
+- [x] 高风险操作 Gating Hook（删除需确认短语）
+- [x] 状态文件结构化（StateManager + SessionState）
+- [x] Stop Hook + 会话摘要生成
+- [x] 阈值可配置（7 个 MA_* 环境变量）
+- [x] PostToolUse + 测试建议（TestMappingService）
+- [x] 测试篡改检测（5 种检测模式）
+- [x] 多视角代码审查（`./ma review` 四视角并行）
+- [x] checkpoint.py 上下文保护（PRE_COMPACT Hook）
 
-- [ ] checkpoint.py 上下文保护
+**云端同步**
+- [x] CloudStorageBackend Protocol（S3/R2/MinIO）
+- [x] DataEncryptor（AES-256-GCM 加密）
+- [x] MemoryExporter/Importer（JSONL 格式）
+- [x] CLI 命令（`./ma cloud init/push/pull/status`）
+
+**其他**
+- [x] Memory Refiner（CoDA 上下文解耦，refine_memory 工具）
 
 ### 规划中 📋
 
 - [ ] 多项目隔离增强
-- [ ] 云端同步
 - [ ] 多语言支持
+- [ ] Web UI 仪表盘
 
 ## 许可证
 

@@ -1,12 +1,31 @@
 # 当前计划
 
-> 最后更新：2025-12-25
+> 最后更新：2025-12-26
 
 ## 正在做
 
 （无当前任务）
 
 ## 已完成
+
+- [x] Cloud Sync 云端同步（2025-12-26）
+  - [x] CloudStorageBackend Protocol（S3/R2/MinIO）
+  - [x] S3Backend 实现（boto3）
+  - [x] DataEncryptor（AES-256-GCM 加密）
+  - [x] MemoryExporter/Importer（JSONL 格式）
+  - [x] CloudSyncService（push/pull/status）
+  - [x] CLI 命令：`./ma cloud init/push/pull/status`
+  - [x] 21 个新测试，469 个测试全部通过
+  - [x] 提交 f3b6877
+
+- [x] checkpoint.py 上下文保护（Phase 8）（2025-12-26）
+  - [x] 添加 `PRE_COMPACT` Hook 类型到 Hook 框架（base.py）
+  - [x] 创建 `checkpoint_hook.py` - 集成 checkpoint.py 到 Hook 系统
+  - [x] 创建 `~/.claude/hooks/pre-compact-checkpoint.py` - 独立 CLI 脚本
+  - [x] 配置 `settings.json` 的 PreCompact Hook
+  - [x] 设计原则：Plan skill（战术）+ Memory Anchor（战略）+ Checkpoint（桥梁）
+  - [x] 捕获状态：端口、Git、Todos、Qdrant
+  - [x] 448 个测试全部通过
 
 - [x] 多视角审查命令（Phase 7）（2025-12-25）
   - [x] `/ma review` CLI 命令（Typer + Rich UI）
