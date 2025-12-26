@@ -8,9 +8,9 @@ Tests for PostToolUse Hook.
 - Phase 5: 测试建议生成
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 from backend.hooks import (
     HookContext,
@@ -297,7 +297,7 @@ class TestPostToolHookTestSuggestions:
             tool_name="Write",
             tool_input={"file_path": "/src/main.py"},
         )
-        result = hook.execute(context)
+        _result = hook.execute(context)  # noqa: F841
 
         # 不应该生成测试建议
         assert hook.get_test_suggestions() == []
@@ -337,7 +337,7 @@ rules:
             tool_input={"file_path": "backend/services/memory.py"},
         )
 
-        result = hook.execute(context)
+        _result = hook.execute(context)  # noqa: F841
 
         # 应该生成测试建议
         suggestions = hook.get_test_suggestions()
@@ -370,7 +370,7 @@ exclude_patterns:
             tool_input={"file_path": "tests/test_main.py"},
         )
 
-        result = hook.execute(context)
+        _result = hook.execute(context)  # noqa: F841
 
         # 测试文件不应该生成建议
         suggestions = hook.get_test_suggestions()

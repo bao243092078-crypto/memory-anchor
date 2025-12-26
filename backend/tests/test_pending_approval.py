@@ -5,16 +5,14 @@ Bug 6: pending_approval memories not persisted to database
 确保置信度 0.7-0.9 的记忆被存入 SQLite，并可通过 API 批准/拒绝
 """
 
+
 import pytest
-import tempfile
-import os
-from pathlib import Path
-from uuid import uuid4
+
+from backend.config import reset_config
 from backend.core.memory_kernel import MemoryKernel
+from backend.services import pending_memory
 from backend.services.pending_memory import PendingMemoryService
 from backend.services.search import SearchService
-from backend.config import reset_config, get_config
-from backend.services import pending_memory
 
 
 class TestPendingApprovalQueue:

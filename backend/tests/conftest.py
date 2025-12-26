@@ -117,9 +117,14 @@ def _reset_all_singletons():
     except (ImportError, AttributeError):
         pass
 
-    # Reset SearchService
+    # Reset SearchService (close client to release Qdrant lock)
     try:
         import backend.services.search as ss
+        if ss._search_service is not None:
+            try:
+                ss._search_service.client.close()
+            except Exception:
+                pass
         ss._search_service = None
     except (ImportError, AttributeError):
         pass
@@ -145,9 +150,15 @@ def _reset_all_singletons():
     except (ImportError, AttributeError):
         pass
 
-    # Reset ChecklistService
+    # Reset ChecklistService (close its internal SearchService)
     try:
         import backend.services.checklist_service as cls
+        if cls._checklist_service is not None:
+            try:
+                if cls._checklist_service._search_service is not None:
+                    cls._checklist_service._search_service.client.close()
+            except Exception:
+                pass
         cls._checklist_service = None
     except (ImportError, AttributeError):
         pass

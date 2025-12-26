@@ -6,6 +6,7 @@ Bug 2: MCP v1/v2 terminology incompatibility
 """
 
 import pytest
+
 from backend.models.note import MemoryLayer
 
 

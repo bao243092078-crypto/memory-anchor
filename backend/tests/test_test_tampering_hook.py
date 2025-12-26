@@ -14,9 +14,9 @@ import pytest
 
 from backend.hooks.base import HookContext, HookDecision, HookType
 from backend.hooks.test_tampering_hook import (
-    TestTamperingHook,
     TamperingSeverity,
     TamperingType,
+    TestTamperingHook,
     analyze_test_modification,
     detect_assert_deletion,
     detect_boundary_test_deletion,

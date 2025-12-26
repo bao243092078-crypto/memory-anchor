@@ -8,8 +8,6 @@ Tests for State Manager.
 """
 
 import json
-import tempfile
-from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -21,13 +19,13 @@ from backend.state import (
     get_state_manager,
     reset_state_manager,
 )
+from backend.state.manager import find_project_root
 from backend.state.models import (
     FileModification,
     MemoryOperation,
     SessionStatus,
     TestRecommendationPriority,
 )
-from backend.state.manager import find_project_root
 
 
 class TestFindProjectRoot:
@@ -224,7 +222,7 @@ class TestStateManager:
 
     def test_end_session(self) -> None:
         """测试结束会话"""
-        session = self.manager.start_session(session_id="end-test")
+        _session = self.manager.start_session(session_id="end-test")  # noqa: F841
         archive_path = self.manager.end_session()
 
         assert archive_path.exists()

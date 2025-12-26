@@ -5,12 +5,14 @@
 """
 
 import asyncio
+
 import pytest
+
+from backend.config import reset_config
 from backend.core.memory_kernel import MemoryKernel
+from backend.services import pending_memory
 from backend.services.pending_memory import PendingMemoryService
 from backend.services.search import SearchService
-from backend.config import reset_config
-from backend.services import pending_memory
 
 
 class TestConcurrentApproval:

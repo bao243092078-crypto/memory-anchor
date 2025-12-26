@@ -9,21 +9,18 @@ Tests for TestMappingService (Phase 5).
 5. 测试命令生成
 """
 
+
 import pytest
-from pathlib import Path
-from unittest.mock import patch
 
 from backend.services.test_mapping import (
+    DEFAULT_EXCLUDE_PATTERNS,
+    DEFAULT_RULES,
     TestMappingService,
-    TestMapping,
     TestSuggestion,
-    TestMappingConfig,
+    _expand_test_pattern,
+    _parse_rules,
     get_test_mapping_service,
     reset_test_mapping_service,
-    _parse_rules,
-    _expand_test_pattern,
-    DEFAULT_RULES,
-    DEFAULT_EXCLUDE_PATTERNS,
 )
 
 

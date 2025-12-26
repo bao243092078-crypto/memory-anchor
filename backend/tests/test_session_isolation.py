@@ -5,10 +5,12 @@ Bug 1: Session isolation failure (agent_id filter never triggers)
 确保 agent_id 过滤在 event_log 层正确生效
 """
 
-import pytest
 from uuid import uuid4
+
+import pytest
+
+from backend.models.note import MemoryLayer
 from backend.services.search import SearchService
-from backend.models.note import MemoryLayer, NoteCategory
 
 
 class TestSessionIsolation:

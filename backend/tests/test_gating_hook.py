@@ -5,11 +5,8 @@ Gating Hook 测试
 验证高风险操作拦截机制。
 """
 
-import pytest
 
 from backend.hooks.gating_hook import (
-    CONFIRMATION_PHRASES,
-    HIGH_RISK_OPERATIONS,
     evaluate_risk,
     gate_operation,
     is_confirmation_present,

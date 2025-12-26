@@ -6,8 +6,9 @@ Bug 5: Remove Qdrant auto-downgrade logic
 """
 
 import pytest
-from backend.services.search import SearchService
+
 from backend.config import get_config
+from backend.services.search import SearchService
 
 
 class TestQdrantStrictMode:

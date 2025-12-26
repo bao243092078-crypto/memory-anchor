@@ -5,12 +5,13 @@ Bug 4: Config loading errors silently swallowed
 确保配置加载错误被正确记录和抛出，而不是静默吞掉
 """
 
+
 import pytest
-from pathlib import Path
+
 from backend.config import (
-    _load_yaml_config,
-    _load_constitution_yaml,
     ConfigLoadError,
+    _load_constitution_yaml,
+    _load_yaml_config,
 )
 
 

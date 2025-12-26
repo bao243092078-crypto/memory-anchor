@@ -12,8 +12,6 @@ import pytest
 from backend.services.llm_provider import (
     AnthropicProvider,
     LocalFallbackProvider,
-    LLMProvider,
-    LLMResponse,
     OpenAIProvider,
     get_llm_provider,
     reset_llm_provider,

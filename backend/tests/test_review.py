@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pytest
 
@@ -28,7 +27,6 @@ from backend.services.review import (
     SecurityReviewer,
     Severity,
 )
-
 
 # ============================================================================
 # Test Fixtures

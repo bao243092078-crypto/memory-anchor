@@ -9,7 +9,6 @@
 
 import sys
 import threading
-from pathlib import Path
 
 import pytest
 
@@ -34,9 +33,9 @@ class TestMemoryKernelThreadSafety:
         instances = []
         instances_lock = threading.Lock()
 
-        def create_instance():
+        def create_instance(ss=search_service):
             """线程工作函数：创建 kernel 实例"""
-            kernel = memory_kernel.get_memory_kernel(search_service=search_service)
+            kernel = memory_kernel.get_memory_kernel(search_service=ss)
             with instances_lock:
                 instances.append(kernel)
 
@@ -118,10 +117,10 @@ class TestMemoryKernelThreadSafety:
         success_count = 0
         count_lock = threading.Lock()
 
-        def rapid_access():
+        def rapid_access(ss=search_service):
             """线程工作函数：快速重复访问"""
             for _ in range(10):
-                kernel = memory_kernel.get_memory_kernel(search_service=search_service)
+                kernel = memory_kernel.get_memory_kernel(search_service=ss)
                 assert kernel is not None
                 with count_lock:
                     nonlocal success_count

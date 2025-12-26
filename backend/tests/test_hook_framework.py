@@ -27,16 +27,17 @@ class TestHookType:
     """测试 HookType 枚举"""
 
     def test_all_hook_types_defined(self):
-        """验证所有 5 个 Hook 类型已定义"""
+        """验证所有 6 个 Hook 类型已定义"""
         assert HookType.PRE_TOOL_USE.value == "PreToolUse"
         assert HookType.POST_TOOL_USE.value == "PostToolUse"
         assert HookType.PERMISSION_REQUEST.value == "PermissionRequest"
         assert HookType.SESSION_START.value == "SessionStart"
         assert HookType.STOP.value == "Stop"
+        assert HookType.PRE_COMPACT.value == "PreCompact"
 
     def test_hook_type_count(self):
         """验证 Hook 类型数量"""
-        assert len(HookType) == 5
+        assert len(HookType) == 6
 
 
 class TestHookDecision:

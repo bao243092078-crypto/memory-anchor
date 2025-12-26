@@ -5,11 +5,13 @@ Bug 3: TTL expiration field filtering not implemented
 确保已过期的记忆（expires_at < now）被正确过滤掉
 """
 
-import pytest
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
-from backend.services.search import SearchService
+
+import pytest
+
 from backend.models.note import MemoryLayer
+from backend.services.search import SearchService
 
 
 class TestTTLExpiration:
