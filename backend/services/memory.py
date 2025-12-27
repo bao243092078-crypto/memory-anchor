@@ -38,6 +38,10 @@ class MemoryAddRequest(BaseModel):
     requires_approval: bool = False
     expires_at: Optional[datetime] = None
 
+    # 可追溯性字段（v2.1 新增，由系统自动填充）
+    session_id: Optional[str] = Field(default=None, description="记录时的会话 ID")
+    related_files: Optional[list[str]] = Field(default=None, description="关联的文件列表")
+
     @field_validator("layer", mode="before")
     @classmethod
     def normalize_layer(cls, v):
@@ -77,6 +81,10 @@ class MemoryResult(BaseModel):
     source: Optional[str] = None
     confidence: float = 1.0
     is_constitution: bool = False  # 标记是否为宪法层（始终显示）
+
+    # 可追溯性字段（v2.1 新增）
+    session_id: Optional[str] = None  # 记录时的会话 ID
+    related_files: Optional[list[str]] = None  # 关联的文件列表
 
 
 class MemoryService:
@@ -157,6 +165,9 @@ class MemoryService:
             source=data.get("source"),
             confidence=float(data["confidence"]) if data.get("confidence") is not None else 1.0,
             is_constitution=bool(data.get("is_constitution", False)),
+            # 可追溯性字段
+            session_id=data.get("session_id"),
+            related_files=data.get("related_files"),
         )
 
     async def add_memory(self, request: MemoryAddRequest) -> dict:
@@ -187,6 +198,9 @@ class MemoryService:
             confidence=request.confidence,
             expires_at=request.expires_at,
             requires_approval=request.requires_approval,
+            # 可追溯性字段
+            session_id=request.session_id,
+            related_files=request.related_files,
         )
 
     async def search_memory(self, request: MemorySearchRequest) -> list[MemoryResult]:

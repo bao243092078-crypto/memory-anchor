@@ -830,7 +830,23 @@ async def _handle_search_memory(
         output_lines.append(
             f"{i}. {layer_icon} [{r.layer.value}]{constitution_mark} (相关度: {r.score:.2f})"
         )
-        output_lines.append(f"   {r.content}\n")
+        output_lines.append(f"   {r.content}")
+
+        # v2.1: 显示可追溯性字段
+        traceability_parts = []
+        if r.session_id:
+            traceability_parts.append(f"会话: {r.session_id}")
+        if r.related_files:
+            files = r.related_files
+            if len(files) == 1:
+                traceability_parts.append(f"文件: {files[0]}")
+            elif len(files) <= 2:
+                traceability_parts.append(f"文件: {', '.join(files)}")
+            else:
+                traceability_parts.append(f"文件: {files[0]} 等 {len(files)} 个")
+        if traceability_parts:
+            output_lines.append(f"   📍 {' | '.join(traceability_parts)}")
+        output_lines.append("")
 
     return [TextContent(type="text", text="\n".join(output_lines))]
 
@@ -838,7 +854,14 @@ async def _handle_search_memory(
 async def _handle_add_memory(
     service: MemoryService, arguments: dict
 ) -> Sequence[TextContent]:
-    """处理添加记忆请求"""
+    """处理添加记忆请求
+
+    v2.1 新增：自动填充可追溯性字段
+    - session_id: 从 StateManager 获取当前会话 ID
+    - related_files: 从 StateManager 获取会话中修改的文件列表
+    """
+    from backend.state.manager import get_state_manager
+
     content = arguments.get("content", "")
     layer = arguments.get("layer", "verified_fact")  # 默认使用新术语
     category = arguments.get("category")
@@ -853,6 +876,31 @@ async def _handle_add_memory(
             )
         ]
 
+    # v2.1: 自动填充可追溯性字段
+    session_id = None
+    related_files = None
+
+    try:
+        state_manager = get_state_manager()
+        session = state_manager.get_current_session()
+
+        # 如果没有会话，尝试自动启动
+        if session is None:
+            try:
+                session = state_manager.start_session()
+            except Exception:
+                session = None  # 优雅降级
+
+        # 从 session 提取字段
+        if session is not None:
+            session_id = session.session_id
+            # source_files 是 list[str]，直接使用
+            if session.source_files:
+                related_files = list(session.source_files)
+    except Exception:
+        # StateManager 不可用时优雅降级，字段保持 None
+        pass
+
     try:
         request = MemoryAddRequest(
             content=content,
@@ -860,6 +908,9 @@ async def _handle_add_memory(
             category=NoteCategory(category) if category else None,
             source=MemorySource.AI_EXTRACTION,  # MCP 调用视为 AI 提取
             confidence=confidence,
+            # v2.1: 可追溯性字段
+            session_id=session_id,
+            related_files=related_files,
         )
 
         result = await service.add_memory(request)
@@ -877,6 +928,16 @@ async def _handle_add_memory(
 
         if result.get("id"):
             output += f"- ID: {result['id']}\n"
+
+        # v2.1: 显示可追溯性字段
+        if result.get("session_id"):
+            output += f"- 会话: {result['session_id']}\n"
+        if result.get("related_files"):
+            files = result["related_files"]
+            if len(files) <= 3:
+                output += f"- 关联文件: {', '.join(files)}\n"
+            else:
+                output += f"- 关联文件: {', '.join(files[:3])} 等 {len(files)} 个文件\n"
 
         if result.get("requires_approval"):
             output += "- ⚠️ 需要照护者审批确认\n"

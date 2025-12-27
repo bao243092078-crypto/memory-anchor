@@ -181,6 +181,9 @@ class SearchService:
         event_when: Optional[str] = None,
         event_where: Optional[str] = None,
         event_who: Optional[List[str]] = None,
+        # v2.1 可追溯性字段
+        session_id: Optional[str] = None,
+        related_files: Optional[List[str]] = None,
     ) -> bool:
         """
         索引一条便利贴到向量数据库。
@@ -199,6 +202,8 @@ class SearchService:
             event_when: L2 情景记忆 - 事件时间（ISO 时间字符串）
             event_where: L2 情景记忆 - 事件地点
             event_who: L2 情景记忆 - 涉及人物列表
+            session_id: v2.1 可追溯性 - 会话 ID
+            related_files: v2.1 可追溯性 - 关联文件列表
 
         Returns:
             是否成功
@@ -246,6 +251,13 @@ class SearchService:
             payload["event_where"] = event_where
         if event_who is not None:
             payload["event_who"] = event_who
+
+        # v2.1 可追溯性字段
+        if session_id is not None:
+            payload["session_id"] = session_id
+        if related_files is not None:
+            payload["related_files"] = related_files
+
         if metadata:
             for key, value in metadata.items():
                 if value is not None:
@@ -471,6 +483,9 @@ class SearchService:
                 "event_when": payload.get("event_when"),
                 "event_where": payload.get("event_where"),
                 "event_who": payload.get("event_who"),
+                # v2.1 可追溯性字段
+                "session_id": payload.get("session_id"),
+                "related_files": payload.get("related_files"),
             })
         return output_list
 
@@ -557,6 +572,9 @@ class SearchService:
                 "event_when": (r.payload or {}).get("event_when"),
                 "event_where": (r.payload or {}).get("event_where"),
                 "event_who": (r.payload or {}).get("event_who"),
+                # v2.1 可追溯性字段
+                "session_id": (r.payload or {}).get("session_id"),
+                "related_files": (r.payload or {}).get("related_files"),
             }
             for r in records
         ]
@@ -601,6 +619,9 @@ class SearchService:
             "event_when": payload.get("event_when"),
             "event_where": payload.get("event_where"),
             "event_who": payload.get("event_who"),
+            # v2.1 可追溯性字段
+            "session_id": payload.get("session_id"),
+            "related_files": payload.get("related_files"),
         }
 
     def update_note(self, note_id: UUID, payload: dict) -> bool:

@@ -216,6 +216,9 @@ class MemoryKernel:
                 "event_when": r.get("event_when"),
                 "event_where": r.get("event_where"),
                 "event_who": r.get("event_who"),
+                # 可追溯性字段（v2.1 新增）
+                "session_id": r.get("session_id"),
+                "related_files": r.get("related_files"),
             })
 
         # 2. 按分数排序，但宪法层始终在前
@@ -241,6 +244,9 @@ class MemoryKernel:
         event_when: Optional[str] = None,
         event_where: Optional[str] = None,
         event_who: Optional[List[str]] = None,
+        # 可追溯性字段（v2.1 新增）
+        session_id: Optional[str] = None,
+        related_files: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         添加记忆
@@ -324,6 +330,9 @@ class MemoryKernel:
                 event_when=event_when,
                 event_where=event_where,
                 event_who=event_who,
+                # 可追溯性字段（v2.1 新增）
+                session_id=session_id,
+                related_files=related_files,
             )
         else:
             # 存入待审批队列（SQLite）
@@ -350,6 +359,9 @@ class MemoryKernel:
             "created_at": created_at,
             "priority": priority,
             "created_by": created_by_value,
+            # 可追溯性字段
+            "session_id": session_id,
+            "related_files": related_files,
         }
 
     def get_constitution(self) -> List[Dict[str, Any]]:

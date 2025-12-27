@@ -135,6 +135,10 @@ class NoteResponse(BaseModel):
     last_verified: datetime | None = None
     is_active: bool = True
 
+    # 可追溯性字段（v2.1 新增）
+    session_id: str | None = Field(default=None, description="记录时的会话 ID")
+    related_files: list[str] | None = Field(default=None, description="关联的文件列表")
+
     model_config = ConfigDict(from_attributes=True)
 
 
