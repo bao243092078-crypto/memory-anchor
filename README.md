@@ -130,6 +130,8 @@ npm run dev
 - ✅ **快速验证** - 一键确认 AI 提取的记忆（提升置信度到 100%）
 - 🗑️ **安全删除** - 需二次确认的删除操作
 - 📋 **详情查看** - 完整信息 + JSON 原始数据
+- ✏️ **内容编辑** - 在详情弹窗中直接修改记忆内容
+- 🔗 **关联信息编辑** - 编辑 session_id 和 related_files
 
 ## 五层认知记忆模型
 
@@ -314,7 +316,7 @@ uv run ruff check backend
 
 ## 更新记录
 
-- 2025-12-27：Memory Viewer Web UI Phase 1-2（验证/删除 + 详情弹窗），修复 Cloud Sync 契约与 LWW 逻辑，统一 layer 类型（v2），收紧宪法层写入并加入 API Key/CORS，调整 Qdrant compose 并改用主机侧 readyz 验证。
+- 2025-12-27：Memory Viewer Web UI 完整编辑功能（Phase 1-4：验证/删除 + 详情弹窗 + 内容编辑 + 关联信息编辑），修复 Cloud Sync 契约与 LWW 逻辑，统一 layer 类型（v2），收紧宪法层写入并加入 API Key/CORS，调整 Qdrant compose 并改用主机侧 readyz 验证。
 
 ## 路线图
 
@@ -356,13 +358,16 @@ uv run ruff check backend
 - [x] 记忆浏览器（搜索、筛选、查看）
 - [x] 快速验证/删除功能（确认弹窗）
 - [x] 记忆详情弹窗（完整信息 + JSON 查看）
+- [x] 内容编辑功能（详情弹窗内联编辑）
+- [x] 关联信息编辑（session_id + related_files）
 - [x] 现代 SaaS 设计（黑白配色 + 亮绿强调色）
 
 ### 规划中 📋
 
 - [ ] 多项目隔离增强
 - [ ] 多语言支持
-- [ ] Web UI 内容编辑功能
+- [ ] 批量操作（多选删除/验证）
+- [ ] 时间线可视化
 
 ## 许可证
 
