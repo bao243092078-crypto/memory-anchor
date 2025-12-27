@@ -10,11 +10,11 @@ interface FilterPanelProps {
 }
 
 const LAYER_OPTIONS: { value: MemoryLayer | null; label: string; shortLabel: string }[] = [
-  { value: null, label: 'All Layers', shortLabel: 'ALL' },
-  { value: 'identity_schema', label: 'Identity Schema', shortLabel: 'L0' },
-  { value: 'event_log', label: 'Event Log', shortLabel: 'L2' },
-  { value: 'verified_fact', label: 'Verified Fact', shortLabel: 'L3' },
-  { value: 'operational_knowledge', label: 'Operations', shortLabel: 'L4' },
+  { value: null, label: '全部层级', shortLabel: '全部' },
+  { value: 'identity_schema', label: '身份图式', shortLabel: 'L0' },
+  { value: 'event_log', label: '事件日志', shortLabel: 'L2' },
+  { value: 'verified_fact', label: '验证事实', shortLabel: 'L3' },
+  { value: 'operational_knowledge', label: '操作知识', shortLabel: 'L4' },
 ];
 
 const CATEGORY_OPTIONS: NoteCategory[] = ['person', 'place', 'event', 'item', 'routine'];
@@ -34,15 +34,15 @@ export function FilterPanel({
         {/* Section: Layers */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              Memory Layer
+            <h3 className="text-xs font-semibold text-gray-400 tracking-wider">
+              记忆层级
             </h3>
             {hasFilters && (
               <button
                 onClick={onClearFilters}
                 className="text-xs text-lime-600 hover:text-lime-700 font-medium transition-colors"
               >
-                Clear all
+                清除筛选
               </button>
             )}
           </div>
@@ -98,8 +98,8 @@ export function FilterPanel({
 
         {/* Section: Categories */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
-            Category
+          <h3 className="text-xs font-semibold text-gray-400 tracking-wider mb-4">
+            分类标签
           </h3>
 
           <div className="space-y-1">
@@ -135,25 +135,25 @@ export function FilterPanel({
 
         {/* Layer Legend */}
         <div className="px-2">
-          <h4 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider mb-3">
-            Layer Reference
+          <h4 className="text-[10px] font-semibold text-gray-300 tracking-wider mb-3">
+            层级说明
           </h4>
           <div className="space-y-2 text-[11px]">
             <div className="flex items-center gap-2">
               <span className="w-5 h-5 rounded bg-red-500 flex items-center justify-center text-white text-[9px] font-bold">L0</span>
-              <span className="text-gray-400">Identity Schema</span>
+              <span className="text-gray-400">身份图式</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-5 h-5 rounded bg-yellow-500 flex items-center justify-center text-white text-[9px] font-bold">L2</span>
-              <span className="text-gray-400">Event Log</span>
+              <span className="text-gray-400">事件日志</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-5 h-5 rounded bg-lime-500 flex items-center justify-center text-white text-[9px] font-bold">L3</span>
-              <span className="text-gray-400">Verified Fact</span>
+              <span className="text-gray-400">验证事实</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-5 h-5 rounded bg-blue-500 flex items-center justify-center text-white text-[9px] font-bold">L4</span>
-              <span className="text-gray-400">Operations</span>
+              <span className="text-gray-400">操作知识</span>
             </div>
           </div>
         </div>

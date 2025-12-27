@@ -21,13 +21,13 @@ export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
     if (days === 0) {
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
     } else if (days === 1) {
-      return 'Yesterday';
+      return '昨天';
     } else if (days < 7) {
-      return `${days} days ago`;
+      return `${days} 天前`;
     } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
     }
   };
 
@@ -74,7 +74,7 @@ export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              {(memory.score * 100).toFixed(0)}% match
+              {(memory.score * 100).toFixed(0)}% 匹配
             </span>
           )}
 
@@ -103,7 +103,7 @@ export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Session
+                  会话
                 </span>
                 <code className="px-2 py-0.5 bg-gray-50 rounded text-gray-600 font-mono text-[11px]">
                   {memory.session_id}
@@ -117,7 +117,7 @@ export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  Files
+                  关联文件
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {memory.related_files.map((file, idx) => (

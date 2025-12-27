@@ -51,7 +51,7 @@ export function SearchBar({ onSearch, onClear, isSearching, currentQuery }: Sear
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Search memories semantically..."
+          placeholder="语义搜索记忆..."
           className="
             w-full h-14 pl-12 pr-32
             bg-white border border-gray-200 rounded-2xl
@@ -89,11 +89,11 @@ export function SearchBar({ onSearch, onClear, isSearching, currentQuery }: Sear
             {isSearching ? (
               <>
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Searching
+                搜索中
               </>
             ) : (
               <>
-                Search
+                搜索
                 <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">
                   ↵
                 </kbd>
@@ -107,10 +107,10 @@ export function SearchBar({ onSearch, onClear, isSearching, currentQuery }: Sear
       <p className="mt-2 text-xs text-gray-400 pl-1">
         {currentQuery ? (
           <>
-            Showing results for "<span className="text-gray-600 font-medium">{currentQuery}</span>"
+            搜索结果：「<span className="text-gray-600 font-medium">{currentQuery}</span>」
           </>
         ) : (
-          'Search across all memory content using semantic similarity'
+          '基于语义相似度搜索所有记忆内容'
         )}
       </p>
     </form>
