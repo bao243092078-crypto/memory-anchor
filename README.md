@@ -132,6 +132,7 @@ npm run dev
 - 📋 **详情查看** - 完整信息 + JSON 原始数据
 - ✏️ **内容编辑** - 在详情弹窗中直接修改记忆内容
 - 🔗 **关联信息编辑** - 编辑 session_id 和 related_files
+- 📊 **时间线可视化** - Recharts 堆叠面积图展示记忆分布
 
 ## 五层认知记忆模型
 
@@ -316,7 +317,7 @@ uv run ruff check backend
 
 ## 更新记录
 
-- 2025-12-27：Memory Viewer Web UI 完整编辑功能（Phase 1-4：验证/删除 + 详情弹窗 + 内容编辑 + 关联信息编辑），修复 Cloud Sync 契约与 LWW 逻辑，统一 layer 类型（v2），收紧宪法层写入并加入 API Key/CORS，调整 Qdrant compose 并改用主机侧 readyz 验证。
+- 2025-12-27：时间线可视化（Recharts 堆叠面积图）+ Memory Viewer Web UI 完整编辑功能（Phase 1-4：验证/删除 + 详情弹窗 + 内容编辑 + 关联信息编辑），修复 Cloud Sync 契约与 LWW 逻辑，统一 layer 类型（v2），收紧宪法层写入并加入 API Key/CORS，调整 Qdrant compose 并改用主机侧 readyz 验证。
 
 ## 路线图
 
@@ -361,13 +362,14 @@ uv run ruff check backend
 - [x] 内容编辑功能（详情弹窗内联编辑）
 - [x] 关联信息编辑（session_id + related_files）
 - [x] 现代 SaaS 设计（黑白配色 + 亮绿强调色）
+- [x] 时间线可视化（Recharts 堆叠面积图）
 
 ### 规划中 📋
 
 - [ ] 多项目隔离增强
 - [ ] 多语言支持
 - [ ] 批量操作（多选删除/验证）
-- [ ] 时间线可视化
+- [ ] 时间筛选器（时间线 Phase 2）
 
 ## 许可证
 
