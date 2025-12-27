@@ -3,13 +3,19 @@ import type { Memory } from '../types';
 import { LAYER_CONFIG, CATEGORY_CONFIG } from '../types';
 import { JsonViewer } from './JsonViewer';
 
+interface SaveData {
+  content?: string;
+  session_id?: string;
+  related_files?: string[];
+}
+
 interface MemoryDetailProps {
   memory: Memory;
   isOpen: boolean;
   onClose: () => void;
   onVerify?: (id: string) => void;
   onDelete?: (id: string) => void;
-  onSave?: (id: string, data: { content: string }) => Promise<boolean>;
+  onSave?: (id: string, data: SaveData) => Promise<boolean>;
   verifying?: boolean;
   saving?: boolean;
 }
@@ -27,12 +33,20 @@ export function MemoryDetail({
   const [showJson, setShowJson] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(memory.content);
+  const [editingRelated, setEditingRelated] = useState(false);
+  const [editSessionId, setEditSessionId] = useState(memory.session_id || '');
+  const [editRelatedFiles, setEditRelatedFiles] = useState(
+    memory.related_files?.join('\n') || ''
+  );
 
   // Reset edit state when memory changes
   useEffect(() => {
     setEditContent(memory.content);
     setEditing(false);
-  }, [memory.id, memory.content]);
+    setEditSessionId(memory.session_id || '');
+    setEditRelatedFiles(memory.related_files?.join('\n') || '');
+    setEditingRelated(false);
+  }, [memory.id, memory.content, memory.session_id, memory.related_files]);
 
   if (!isOpen) return null;
 
@@ -76,7 +90,35 @@ export function MemoryDetail({
     setEditing(false);
   };
 
+  const handleSaveRelated = async () => {
+    if (onSave) {
+      const relatedFilesArray = editRelatedFiles
+        .split('\n')
+        .map(f => f.trim())
+        .filter(f => f.length > 0);
+
+      const success = await onSave(memory.id, {
+        session_id: editSessionId || undefined,
+        related_files: relatedFilesArray.length > 0 ? relatedFilesArray : undefined,
+      });
+      if (success) {
+        setEditingRelated(false);
+      }
+    } else {
+      setEditingRelated(false);
+    }
+  };
+
+  const handleCancelRelated = () => {
+    setEditSessionId(memory.session_id || '');
+    setEditRelatedFiles(memory.related_files?.join('\n') || '');
+    setEditingRelated(false);
+  };
+
   const hasChanges = editContent !== memory.content;
+  const hasRelatedChanges =
+    editSessionId !== (memory.session_id || '') ||
+    editRelatedFiles !== (memory.related_files?.join('\n') || '');
 
   return (
     <div
@@ -230,39 +272,99 @@ export function MemoryDetail({
           <section>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-gray-500">关联信息</h3>
-              {/* Edit button placeholder for Phase 4 */}
+              {onSave && !editingRelated && (
+                <button
+                  onClick={() => setEditingRelated(true)}
+                  className="text-xs text-lime-600 hover:text-lime-700 flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  编辑
+                </button>
+              )}
+              {editingRelated && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCancelRelated}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleSaveRelated}
+                    disabled={saving || !hasRelatedChanges}
+                    className="text-xs text-lime-600 hover:text-lime-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    {saving ? (
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    保存
+                  </button>
+                </div>
+              )}
             </div>
             <div className="bg-gray-50 rounded-xl p-4 space-y-3">
               <div>
                 <span className="text-xs text-gray-500">会话 ID</span>
-                <p className="mt-0.5">
-                  {memory.session_id ? (
-                    <code className="text-xs font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-                      {memory.session_id}
-                    </code>
-                  ) : (
-                    <span className="text-gray-400 text-sm">未设置</span>
-                  )}
-                </p>
+                {editingRelated ? (
+                  <input
+                    type="text"
+                    value={editSessionId}
+                    onChange={(e) => setEditSessionId(e.target.value)}
+                    placeholder="输入会话 ID..."
+                    className="mt-1 w-full text-xs font-mono text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent"
+                  />
+                ) : (
+                  <p className="mt-0.5">
+                    {memory.session_id ? (
+                      <code className="text-xs font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+                        {memory.session_id}
+                      </code>
+                    ) : (
+                      <span className="text-gray-400 text-sm">未设置</span>
+                    )}
+                  </p>
+                )}
               </div>
               <div>
                 <span className="text-xs text-gray-500">关联文件</span>
-                <div className="mt-1">
-                  {memory.related_files && memory.related_files.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {memory.related_files.map((file, idx) => (
-                        <code
-                          key={idx}
-                          className="text-xs font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded"
-                        >
-                          {file}
-                        </code>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400 text-sm">未设置</span>
-                  )}
-                </div>
+                {editingRelated ? (
+                  <div className="mt-1">
+                    <textarea
+                      value={editRelatedFiles}
+                      onChange={(e) => setEditRelatedFiles(e.target.value)}
+                      placeholder="每行一个文件路径..."
+                      rows={3}
+                      className="w-full text-xs font-mono text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent resize-y"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">每行输入一个文件路径</p>
+                  </div>
+                ) : (
+                  <div className="mt-1">
+                    {memory.related_files && memory.related_files.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {memory.related_files.map((file, idx) => (
+                          <code
+                            key={idx}
+                            className="text-xs font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded"
+                          >
+                            {file}
+                          </code>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-sm">未设置</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </section>

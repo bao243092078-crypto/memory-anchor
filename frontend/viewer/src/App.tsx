@@ -109,7 +109,10 @@ function App() {
     setDeleteDialogOpen(true);
   }, []);
 
-  const handleDetailSave = useCallback(async (id: string, data: { content: string }): Promise<boolean> => {
+  const handleDetailSave = useCallback(async (
+    id: string,
+    data: { content?: string; session_id?: string; related_files?: string[] }
+  ): Promise<boolean> => {
     const result = await update(id, data);
     if (result) {
       setSelectedMemory(result);
