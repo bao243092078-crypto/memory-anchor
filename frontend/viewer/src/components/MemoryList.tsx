@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { Memory } from '../types';
 import { MemoryCard } from './MemoryCard';
 
@@ -41,6 +42,7 @@ export function MemoryList({
   onEnterSelectionMode,
   onExitSelectionMode,
 }: MemoryListProps) {
+  const { t } = useTranslation();
   const selectedCount = selectedIds.size;
   const isAllSelected = memories.length > 0 && memories.every((m) => selectedIds.has(m.id));
   const hasUnverified = memories.some((m) => selectedIds.has(m.id) && m.confidence < 1);
@@ -56,7 +58,7 @@ export function MemoryList({
             </svg>
           </div>
         </div>
-        <p className="mt-4 text-sm text-gray-400 font-medium">加载记忆中...</p>
+        <p className="mt-4 text-sm text-gray-400 font-medium">{t('memory.loading')}</p>
       </div>
     );
   }
@@ -69,7 +71,7 @@ export function MemoryList({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
-        <h3 className="text-base font-semibold text-gray-900 mb-1">连接错误</h3>
+        <h3 className="text-base font-semibold text-gray-900 mb-1">{t('memory.connectionError')}</h3>
         <p className="text-sm text-gray-500 text-center max-w-sm">{error}</p>
       </div>
     );
@@ -84,12 +86,12 @@ export function MemoryList({
           </svg>
         </div>
         <h3 className="text-base font-semibold text-gray-900 mb-1">
-          {searchQuery ? '未找到匹配结果' : '暂无记忆'}
+          {searchQuery ? t('memory.noResults') : t('memory.empty')}
         </h3>
         <p className="text-sm text-gray-500 text-center max-w-sm">
           {searchQuery
-            ? '试试其他搜索词或清除筛选条件'
-            : '添加记忆后将显示在这里'
+            ? t('memory.tryOtherSearch')
+            : t('memory.addFirst')
           }
         </p>
       </div>
@@ -120,11 +122,11 @@ export function MemoryList({
                     </svg>
                   )}
                 </div>
-                全选
+                {t('batch.selectAll')}
               </button>
 
               <span className="text-sm text-gray-500">
-                已选择 <span className="font-semibold text-gray-900">{selectedCount}</span> 条
+                {t('batch.selected', { count: selectedCount })}
               </span>
             </div>
 
@@ -139,7 +141,7 @@ export function MemoryList({
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  批量验证
+                  {t('batch.verify')}
                 </button>
               )}
 
@@ -153,7 +155,7 @@ export function MemoryList({
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                  批量删除
+                  {t('batch.delete')}
                 </button>
               )}
 
@@ -165,7 +167,7 @@ export function MemoryList({
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                取消
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -175,10 +177,10 @@ export function MemoryList({
           {searchQuery ? (
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500">
-                找到 <span className="font-semibold text-gray-900">{memories.length}</span> 条结果
+                {t('search.foundResults', { count: memories.length })}
               </span>
               <span className="text-gray-300">•</span>
-              <span className="text-sm text-gray-400">按相关度排序</span>
+              <span className="text-sm text-gray-400">{t('search.sortByRelevance')}</span>
             </div>
           ) : (
             <div />
@@ -193,7 +195,7 @@ export function MemoryList({
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-              批量操作
+              {t('batch.operations')}
             </button>
           )}
         </div>

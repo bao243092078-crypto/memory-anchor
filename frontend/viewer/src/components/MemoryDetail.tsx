@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Memory } from '../types';
 import { LAYER_CONFIG, CATEGORY_CONFIG } from '../types';
 import { JsonViewer } from './JsonViewer';
@@ -30,6 +31,7 @@ export function MemoryDetail({
   verifying,
   saving,
 }: MemoryDetailProps) {
+  const { t, i18n } = useTranslation();
   const [showJson, setShowJson] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(memory.content);
@@ -59,7 +61,8 @@ export function MemoryDetail({
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString('zh-CN', {
+    const locale = i18n.language === 'zh' ? 'zh-CN' : 'en-US';
+    return date.toLocaleString(locale, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -136,7 +139,7 @@ export function MemoryDetail({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 id="detail-title" className="text-lg font-semibold text-gray-900">
-            记忆详情
+            {t('detail.title')}
           </h2>
           <button
             onClick={onClose}
@@ -152,7 +155,7 @@ export function MemoryDetail({
         <div className="px-6 py-5 overflow-y-auto max-h-[calc(90vh-180px)] space-y-6">
           {/* Basic Info Section */}
           <section>
-            <h3 className="text-sm font-medium text-gray-500 mb-3">基础信息</h3>
+            <h3 className="text-sm font-medium text-gray-500 mb-3">{t('detail.basicInfo')}</h3>
             <div className="bg-gray-50 rounded-xl p-4 space-y-3">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
@@ -160,7 +163,7 @@ export function MemoryDetail({
                   <p className="font-mono text-gray-900 text-xs mt-0.5">{memory.id}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">层级</span>
+                  <span className="text-gray-500">{t('detail.layer')}</span>
                   <p className="mt-0.5">
                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium text-white ${layerConfig.color}`}>
                       {layerConfig.shortLabel} {layerConfig.label.split(' ').pop()}
@@ -168,19 +171,19 @@ export function MemoryDetail({
                   </p>
                 </div>
                 <div>
-                  <span className="text-gray-500">分类</span>
+                  <span className="text-gray-500">{t('detail.category')}</span>
                   <p className="text-gray-900 mt-0.5">
                     {categoryConfig ? (
                       <span className="inline-flex items-center gap-1">
                         {categoryConfig.emoji} {categoryConfig.label}
                       </span>
                     ) : (
-                      <span className="text-gray-400">未分类</span>
+                      <span className="text-gray-400">{t('detail.uncategorized')}</span>
                     )}
                   </p>
                 </div>
                 <div>
-                  <span className="text-gray-500">置信度</span>
+                  <span className="text-gray-500">{t('detail.confidence')}</span>
                   <p className="mt-0.5">
                     {memory.confidence < 1 ? (
                       <span className="inline-flex items-center gap-1 text-amber-600">
@@ -195,11 +198,11 @@ export function MemoryDetail({
                   </p>
                 </div>
                 <div>
-                  <span className="text-gray-500">创建时间</span>
+                  <span className="text-gray-500">{t('detail.createdAt')}</span>
                   <p className="text-gray-900 mt-0.5">{formatDateTime(memory.created_at)}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">来源</span>
+                  <span className="text-gray-500">{t('detail.source')}</span>
                   <p className="text-gray-900 mt-0.5 font-mono text-xs">
                     {(memory as unknown as Record<string, unknown>).created_by as string || (memory as unknown as Record<string, unknown>).source as string || 'caregiver'}
                   </p>
@@ -211,7 +214,7 @@ export function MemoryDetail({
           {/* Content Section */}
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-500">内容</h3>
+              <h3 className="text-sm font-medium text-gray-500">{t('detail.content')}</h3>
               {onSave && !editing && (
                 <button
                   onClick={() => setEditing(true)}
@@ -220,7 +223,7 @@ export function MemoryDetail({
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
-                  编辑
+                  {t('common.edit')}
                 </button>
               )}
               {editing && (
@@ -229,7 +232,7 @@ export function MemoryDetail({
                     onClick={handleCancel}
                     className="text-xs text-gray-500 hover:text-gray-700"
                   >
-                    取消
+                    {t('common.cancel')}
                   </button>
                   <button
                     onClick={handleSave}
@@ -246,7 +249,7 @@ export function MemoryDetail({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     )}
-                    保存
+                    {t('common.save')}
                   </button>
                 </div>
               )}
@@ -257,7 +260,7 @@ export function MemoryDetail({
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
                   className="w-full min-h-[120px] text-gray-900 text-sm leading-relaxed bg-white border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent resize-y"
-                  placeholder="输入记忆内容..."
+                  placeholder={t('detail.contentPlaceholder')}
                   autoFocus
                 />
               ) : (
@@ -271,7 +274,7 @@ export function MemoryDetail({
           {/* Related Info Section */}
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-500">关联信息</h3>
+              <h3 className="text-sm font-medium text-gray-500">{t('detail.relatedInfo')}</h3>
               {onSave && !editingRelated && (
                 <button
                   onClick={() => setEditingRelated(true)}
@@ -280,7 +283,7 @@ export function MemoryDetail({
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
-                  编辑
+                  {t('common.edit')}
                 </button>
               )}
               {editingRelated && (
@@ -289,7 +292,7 @@ export function MemoryDetail({
                     onClick={handleCancelRelated}
                     className="text-xs text-gray-500 hover:text-gray-700"
                   >
-                    取消
+                    {t('common.cancel')}
                   </button>
                   <button
                     onClick={handleSaveRelated}
@@ -306,20 +309,20 @@ export function MemoryDetail({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     )}
-                    保存
+                    {t('common.save')}
                   </button>
                 </div>
               )}
             </div>
             <div className="bg-gray-50 rounded-xl p-4 space-y-3">
               <div>
-                <span className="text-xs text-gray-500">会话 ID</span>
+                <span className="text-xs text-gray-500">{t('detail.sessionId')}</span>
                 {editingRelated ? (
                   <input
                     type="text"
                     value={editSessionId}
                     onChange={(e) => setEditSessionId(e.target.value)}
-                    placeholder="输入会话 ID..."
+                    placeholder={t('detail.sessionPlaceholder')}
                     className="mt-1 w-full text-xs font-mono text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent"
                   />
                 ) : (
@@ -329,23 +332,23 @@ export function MemoryDetail({
                         {memory.session_id}
                       </code>
                     ) : (
-                      <span className="text-gray-400 text-sm">未设置</span>
+                      <span className="text-gray-400 text-sm">{t('detail.notSet')}</span>
                     )}
                   </p>
                 )}
               </div>
               <div>
-                <span className="text-xs text-gray-500">关联文件</span>
+                <span className="text-xs text-gray-500">{t('detail.relatedFiles')}</span>
                 {editingRelated ? (
                   <div className="mt-1">
                     <textarea
                       value={editRelatedFiles}
                       onChange={(e) => setEditRelatedFiles(e.target.value)}
-                      placeholder="每行一个文件路径..."
+                      placeholder={t('detail.filesPlaceholder')}
                       rows={3}
                       className="w-full text-xs font-mono text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent resize-y"
                     />
-                    <p className="text-xs text-gray-400 mt-1">每行输入一个文件路径</p>
+                    <p className="text-xs text-gray-400 mt-1">{t('detail.filesHint')}</p>
                   </div>
                 ) : (
                   <div className="mt-1">
@@ -361,7 +364,7 @@ export function MemoryDetail({
                         ))}
                       </div>
                     ) : (
-                      <span className="text-gray-400 text-sm">未设置</span>
+                      <span className="text-gray-400 text-sm">{t('detail.notSet')}</span>
                     )}
                   </div>
                 )}
@@ -372,12 +375,12 @@ export function MemoryDetail({
           {/* JSON Section */}
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-500">JSON 原始数据</h3>
+              <h3 className="text-sm font-medium text-gray-500">{t('detail.rawJson')}</h3>
               <button
                 onClick={() => setShowJson(!showJson)}
                 className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
               >
-                {showJson ? '收起' : '展开'}
+                {showJson ? t('common.collapse') : t('common.expand')}
                 <svg
                   className={`w-4 h-4 transition-transform ${showJson ? 'rotate-180' : ''}`}
                   fill="none"
@@ -411,7 +414,7 @@ export function MemoryDetail({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               )}
-              确认记忆
+              {t('memory.verify')}
             </button>
           )}
 
@@ -424,7 +427,7 @@ export function MemoryDetail({
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
-              删除
+              {t('common.delete')}
             </button>
           )}
 
@@ -433,7 +436,7 @@ export function MemoryDetail({
             onClick={onClose}
             className="px-4 py-2 rounded-xl text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors"
           >
-            关闭
+            {t('common.close')}
           </button>
         </div>
       </div>

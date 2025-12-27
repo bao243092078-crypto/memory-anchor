@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -8,6 +9,7 @@ interface SearchBarProps {
 }
 
 export function SearchBar({ onSearch, onClear, isSearching, currentQuery }: SearchBarProps) {
+  const { t } = useTranslation();
   const [inputValue, setInputValue] = useState(currentQuery);
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -51,7 +53,7 @@ export function SearchBar({ onSearch, onClear, isSearching, currentQuery }: Sear
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="语义搜索记忆..."
+          placeholder={t('search.placeholder')}
           className="
             w-full h-14 pl-12 pr-32
             bg-white border border-gray-200 rounded-2xl
@@ -89,11 +91,11 @@ export function SearchBar({ onSearch, onClear, isSearching, currentQuery }: Sear
             {isSearching ? (
               <>
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                搜索中
+                {t('search.searching')}
               </>
             ) : (
               <>
-                搜索
+                {t('search.search')}
                 <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">
                   ↵
                 </kbd>
@@ -107,10 +109,10 @@ export function SearchBar({ onSearch, onClear, isSearching, currentQuery }: Sear
       <p className="mt-2 text-xs text-gray-400 pl-1">
         {currentQuery ? (
           <>
-            搜索结果：「<span className="text-gray-600 font-medium">{currentQuery}</span>」
+            {t('search.results')}「<span className="text-gray-600 font-medium">{currentQuery}</span>」
           </>
         ) : (
-          '基于语义相似度搜索所有记忆内容'
+          t('search.hint')
         )}
       </p>
     </form>

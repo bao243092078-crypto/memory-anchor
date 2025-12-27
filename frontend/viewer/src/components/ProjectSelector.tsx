@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ProjectInfo } from '../types';
 import { PROJECT_TYPE_CONFIG } from '../types';
 import { listProjects } from '../api/memory';
@@ -9,6 +10,7 @@ interface ProjectSelectorProps {
 }
 
 export function ProjectSelector({ currentProject, onProjectChange }: ProjectSelectorProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -80,9 +82,9 @@ export function ProjectSelector({ currentProject, onProjectChange }: ProjectSele
         <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-xl border border-gray-200 shadow-xl z-50 animate-fade-in overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-            <h3 className="text-sm font-semibold text-gray-900">切换项目</h3>
+            <h3 className="text-sm font-semibold text-gray-900">{t('project.switchProject')}</h3>
             <p className="text-xs text-gray-500 mt-0.5">
-              共 {projects.length} 个项目
+              {t('project.projectCount', { count: projects.length })}
             </p>
           </div>
 
@@ -101,7 +103,7 @@ export function ProjectSelector({ currentProject, onProjectChange }: ProjectSele
               </div>
             ) : projects.length === 0 ? (
               <div className="px-4 py-6 text-center">
-                <p className="text-sm text-gray-500">暂无项目</p>
+                <p className="text-sm text-gray-500">{t('project.noProjects')}</p>
               </div>
             ) : (
               <div className="py-1">
@@ -137,7 +139,7 @@ export function ProjectSelector({ currentProject, onProjectChange }: ProjectSele
                           <span className="text-xs text-gray-400 truncate">{project.id}</span>
                           {project.has_constitution && (
                             <span className="flex-shrink-0 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-100 rounded">
-                              宪法层
+                              {t('project.constitution')}
                             </span>
                           )}
                         </div>
@@ -159,7 +161,7 @@ export function ProjectSelector({ currentProject, onProjectChange }: ProjectSele
           {/* Footer hint */}
           <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
             <p className="text-xs text-gray-500">
-              切换项目需要重启服务
+              {t('project.restartHint')}
             </p>
           </div>
         </div>

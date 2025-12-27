@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { Memory } from '../types';
 import { LAYER_CONFIG, CATEGORY_CONFIG } from '../types';
 
@@ -24,6 +25,7 @@ export function MemoryCard({
   selected = false,
   onSelect,
 }: MemoryCardProps) {
+  const { t, i18n } = useTranslation();
   const layerConfig = LAYER_CONFIG[memory.layer] || {
     label: memory.layer,
     color: 'bg-gray-500',
@@ -36,15 +38,16 @@ export function MemoryCard({
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const locale = i18n.language === 'zh' ? 'zh-CN' : 'en-US';
 
     if (days === 0) {
-      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
     } else if (days === 1) {
-      return '昨天';
+      return t('time.yesterday');
     } else if (days < 7) {
-      return `${days} 天前`;
+      return t('time.daysAgo', { count: days });
     } else {
-      return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+      return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
     }
   };
 
@@ -134,7 +137,7 @@ export function MemoryCard({
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                {(memory.score * 100).toFixed(0)}% 匹配
+                {t('memory.match', { percent: (memory.score * 100).toFixed(0) })}
               </span>
             )}
 
@@ -160,7 +163,7 @@ export function MemoryCard({
                 }}
                 disabled={verifying}
                 className="p-1.5 rounded-lg text-lime-600 hover:bg-lime-50 hover:text-lime-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="确认记忆"
+                title={t('memory.verifyTitle')}
               >
                 {verifying ? (
                   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -183,7 +186,7 @@ export function MemoryCard({
                   onDelete(memory.id);
                 }}
                 className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                title="删除记忆"
+                title={t('memory.deleteTitle')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -207,7 +210,7 @@ export function MemoryCard({
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  会话
+                  {t('memory.session')}
                 </span>
                 <code className="px-2 py-0.5 bg-gray-50 rounded text-gray-600 font-mono text-[11px]">
                   {memory.session_id}
@@ -221,7 +224,7 @@ export function MemoryCard({
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  关联文件
+                  {t('memory.relatedFiles')}
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {memory.related_files.map((file, idx) => (
