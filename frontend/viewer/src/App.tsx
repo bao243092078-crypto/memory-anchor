@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
-import { Header, SearchBar, FilterPanel, MemoryList, ConfirmDialog } from './components';
+import { Header, SearchBar, FilterPanel, MemoryList, ConfirmDialog, MemoryDetail } from './components';
 import { useMemories } from './hooks/useMemories';
 import { useMemoryActions } from './hooks/useMemoryActions';
-import type { MemoryLayer, NoteCategory } from './types';
+import type { Memory, MemoryLayer, NoteCategory } from './types';
 
 function App() {
   const [selectedLayer, setSelectedLayer] = useState<MemoryLayer | null>(null);
@@ -10,6 +10,7 @@ function App() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
 
   // Use the first selected category for filtering (API supports single category)
   const filterCategory = selectedCategories.length === 1 ? selectedCategories[0] : undefined;
@@ -83,6 +84,31 @@ function App() {
     setPendingDeleteId(null);
   }, []);
 
+  const handleCardClick = useCallback((memory: Memory) => {
+    setSelectedMemory(memory);
+  }, []);
+
+  const handleDetailClose = useCallback(() => {
+    setSelectedMemory(null);
+  }, []);
+
+  const handleDetailVerify = useCallback(async (id: string) => {
+    setVerifyingId(id);
+    const result = await verify(id);
+    setVerifyingId(null);
+    if (result) {
+      // Update the selected memory with verified state
+      setSelectedMemory((prev) => prev && prev.id === id ? { ...prev, confidence: 1 } : prev);
+      refresh();
+    }
+  }, [verify, refresh]);
+
+  const handleDetailDelete = useCallback((id: string) => {
+    setSelectedMemory(null);
+    setPendingDeleteId(id);
+    setDeleteDialogOpen(true);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50/50">
       <Header memoryCount={filteredMemories.length} isLoading={loading} />
@@ -118,6 +144,7 @@ function App() {
               searchQuery={searchQuery}
               onVerify={handleVerify}
               onDelete={handleDeleteClick}
+              onCardClick={handleCardClick}
               verifyingId={verifyingId}
             />
           </div>
@@ -136,6 +163,18 @@ function App() {
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
       />
+
+      {/* Memory detail modal */}
+      {selectedMemory && (
+        <MemoryDetail
+          memory={selectedMemory}
+          isOpen={!!selectedMemory}
+          onClose={handleDetailClose}
+          onVerify={handleDetailVerify}
+          onDelete={handleDetailDelete}
+          verifying={verifyingId === selectedMemory.id}
+        />
+      )}
     </div>
   );
 }

@@ -112,6 +112,25 @@ memory-anchor doctor --project my-project
 ./ma review --project my-project --paths backend/
 ```
 
+### Memory Viewer (Web UI)
+
+```bash
+# 启动前端（需先启动后端）
+cd frontend/viewer
+npm install
+npm run dev
+
+# 访问 http://localhost:5173
+```
+
+**功能特性**:
+- 🔍 **语义搜索** - 输入关键词搜索记忆
+- 🏷️ **层级筛选** - 按 L0-L4 层级过滤
+- 📂 **分类筛选** - 按人物/地点/事件/物品/习惯分类
+- ✅ **快速验证** - 一键确认 AI 提取的记忆（提升置信度到 100%）
+- 🗑️ **安全删除** - 需二次确认的删除操作
+- 📋 **详情查看** - 完整信息 + JSON 原始数据
+
 ## 五层认知记忆模型
 
 基于认知科学的 AI 记忆架构：
@@ -247,6 +266,7 @@ AI（无 Memory Anchor）          AI（有 Memory Anchor）
 ## 技术栈
 
 - **后端**: Python 3.12 + FastAPI + Pydantic
+- **前端**: React 18 + Vite + Tailwind CSS
 - **向量数据库**: Qdrant（本地/远程）
 - **嵌入模型**: FastEmbed (paraphrase-multilingual-MiniLM-L12-v2)
 - **MCP**: Model Context Protocol
@@ -294,7 +314,7 @@ uv run ruff check backend
 
 ## 更新记录
 
-- 2025-12-27：修复 Cloud Sync 契约与 LWW 逻辑，统一 layer 类型（v2），收紧宪法层写入并加入 API Key/CORS，调整 Qdrant compose 并改用主机侧 readyz 验证。
+- 2025-12-27：Memory Viewer Web UI Phase 1-2（验证/删除 + 详情弹窗），修复 Cloud Sync 契约与 LWW 逻辑，统一 layer 类型（v2），收紧宪法层写入并加入 API Key/CORS，调整 Qdrant compose 并改用主机侧 readyz 验证。
 
 ## 路线图
 
@@ -332,11 +352,17 @@ uv run ruff check backend
 - [x] Memory Refiner（CoDA 上下文解耦，refine_memory 工具）
 - [x] 全面类型安全（mypy strict, 经 GPT-5.2 xhigh 审核）
 
+**Web UI (Memory Viewer)**
+- [x] 记忆浏览器（搜索、筛选、查看）
+- [x] 快速验证/删除功能（确认弹窗）
+- [x] 记忆详情弹窗（完整信息 + JSON 查看）
+- [x] 现代 SaaS 设计（黑白配色 + 亮绿强调色）
+
 ### 规划中 📋
 
 - [ ] 多项目隔离增强
 - [ ] 多语言支持
-- [ ] Web UI 仪表盘
+- [ ] Web UI 内容编辑功能
 
 ## 许可证
 

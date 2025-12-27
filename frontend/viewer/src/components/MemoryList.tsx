@@ -8,10 +8,11 @@ interface MemoryListProps {
   searchQuery: string;
   onVerify?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onCardClick?: (memory: Memory) => void;
   verifyingId?: string | null;
 }
 
-export function MemoryList({ memories, loading, error, searchQuery, onVerify, onDelete, verifyingId }: MemoryListProps) {
+export function MemoryList({ memories, loading, error, searchQuery, onVerify, onDelete, onCardClick, verifyingId }: MemoryListProps) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -84,6 +85,7 @@ export function MemoryList({ memories, loading, error, searchQuery, onVerify, on
             index={index}
             onVerify={onVerify}
             onDelete={onDelete}
+            onClick={onCardClick}
             verifying={verifyingId === memory.id}
           />
         ))}

@@ -6,10 +6,11 @@ interface MemoryCardProps {
   index?: number;
   onVerify?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onClick?: (memory: Memory) => void;
   verifying?: boolean;
 }
 
-export function MemoryCard({ memory, index = 0, onVerify, onDelete, verifying }: MemoryCardProps) {
+export function MemoryCard({ memory, index = 0, onVerify, onDelete, onClick, verifying }: MemoryCardProps) {
   const layerConfig = LAYER_CONFIG[memory.layer] || {
     label: memory.layer,
     color: 'bg-gray-500',
@@ -34,6 +35,10 @@ export function MemoryCard({ memory, index = 0, onVerify, onDelete, verifying }:
     }
   };
 
+  const handleCardClick = () => {
+    onClick?.(memory);
+  };
+
   return (
     <article
       className={`
@@ -42,8 +47,10 @@ export function MemoryCard({ memory, index = 0, onVerify, onDelete, verifying }:
         hover:border-gray-200 hover:shadow-lg hover:shadow-gray-100/50
         transition-all duration-300 ease-out
         animate-fade-in-up opacity-0
+        ${onClick ? 'cursor-pointer' : ''}
       `}
       style={{ animationDelay: `${index * 0.05}s` }}
+      onClick={handleCardClick}
     >
       {/* Layer indicator bar */}
       <div
