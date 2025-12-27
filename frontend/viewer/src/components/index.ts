@@ -6,3 +6,4 @@ export { MemoryList } from './MemoryList';
 export { ConfirmDialog } from './ConfirmDialog';
 export { MemoryDetail } from './MemoryDetail';
 export { JsonViewer } from './JsonViewer';
+export { ProjectSelector } from './ProjectSelector';

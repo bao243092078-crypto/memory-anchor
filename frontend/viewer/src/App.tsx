@@ -4,12 +4,16 @@ import type { ViewType } from './components/Header';
 import { useMemories } from './hooks/useMemories';
 import { useMemoryActions } from './hooks/useMemoryActions';
 import { useSelection } from './hooks/useSelection';
+import { useProject } from './hooks/useProject';
 import { TimelinePage } from './pages/TimelinePage';
 import type { Memory, MemoryLayer, NoteCategory } from './types';
 
 function App() {
   const [currentView, setCurrentView] = useState<ViewType>('search');
   const [selectedLayer, setSelectedLayer] = useState<MemoryLayer | null>(null);
+
+  // Project management
+  const { currentProject, switchProject } = useProject();
   const [selectedCategories, setSelectedCategories] = useState<NoteCategory[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -202,6 +206,8 @@ function App() {
         isLoading={loading}
         currentView={currentView}
         onViewChange={setCurrentView}
+        currentProject={currentProject}
+        onProjectChange={switchProject}
       />
 
       <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8">

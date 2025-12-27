@@ -57,3 +57,23 @@ export const CATEGORY_CONFIG: Record<NoteCategory, { label: string; emoji: strin
   item: { label: '物品', emoji: '📦' },
   routine: { label: '习惯', emoji: '🔄' },
 };
+
+// Project types
+export interface ProjectInfo {
+  id: string;
+  name: string;
+  type: string;
+  has_constitution: boolean;
+  memory_count?: number;
+}
+
+export interface ProjectListResponse {
+  projects: ProjectInfo[];
+  current_project: string;
+}
+
+export const PROJECT_TYPE_CONFIG: Record<string, { label: string; emoji: string }> = {
+  'ai-development': { label: 'AI 开发', emoji: '🤖' },
+  'patient-care': { label: '患者护理', emoji: '💊' },
+  'knowledge-base': { label: '知识库', emoji: '📚' },
+};

@@ -1,4 +1,4 @@
-import type { Memory, SearchRequest, MemoryLayer, NoteCategory } from '../types';
+import type { Memory, SearchRequest, MemoryLayer, NoteCategory, ProjectListResponse } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -140,6 +140,37 @@ export async function updateMemory(
 
   if (!response.ok) {
     throw new Error(`Update failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * List available projects
+ */
+export async function listProjects(): Promise<ProjectListResponse> {
+  const response = await fetch(`${API_BASE}/projects`);
+
+  if (!response.ok) {
+    throw new Error(`List projects failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Get current project info
+ */
+export async function getCurrentProject(): Promise<{
+  project_id: string;
+  project_type: string;
+  data_dir: string;
+  collection_name: string;
+}> {
+  const response = await fetch(`${API_BASE}/projects/current`);
+
+  if (!response.ok) {
+    throw new Error(`Get current project failed: ${response.statusText}`);
   }
 
   return response.json();

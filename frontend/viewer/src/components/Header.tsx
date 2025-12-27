@@ -1,3 +1,5 @@
+import { ProjectSelector } from './ProjectSelector';
+
 export type ViewType = 'search' | 'timeline';
 
 interface HeaderProps {
@@ -5,39 +7,57 @@ interface HeaderProps {
   isLoading?: boolean;
   currentView: ViewType;
   onViewChange: (view: ViewType) => void;
+  currentProject: string;
+  onProjectChange?: (projectId: string) => void;
 }
 
-export function Header({ memoryCount, isLoading, currentView, onViewChange }: HeaderProps) {
+export function Header({
+  memoryCount,
+  isLoading,
+  currentView,
+  onViewChange,
+  currentProject,
+  onProjectChange,
+}: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center">
-                <svg
-                  className="w-5 h-5 text-lime-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                  <path d="M2 12l10 5 10-5" />
-                </svg>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-lime-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                    <path d="M2 17l10 5 10-5" />
+                    <path d="M2 12l10 5 10-5" />
+                  </svg>
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-lime-400 rounded-full border-2 border-white" />
               </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-lime-400 rounded-full border-2 border-white" />
+              <div>
+                <h1 className="text-base font-semibold text-gray-900 tracking-tight">
+                  记忆锚点
+                </h1>
+                <p className="text-[11px] text-gray-400 font-medium tracking-wide">
+                  Memory Anchor
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-base font-semibold text-gray-900 tracking-tight">
-                记忆锚点
-              </h1>
-              <p className="text-[11px] text-gray-400 font-medium tracking-wide">
-                Memory Anchor
-              </p>
-            </div>
+
+            {/* Project Selector */}
+            <div className="h-6 w-px bg-gray-200" />
+            <ProjectSelector
+              currentProject={currentProject}
+              onProjectChange={onProjectChange}
+            />
           </div>
 
           {/* Navigation Tabs */}
