@@ -10,6 +10,7 @@ Memory Anchor CLI - 命令行工具
 - memory-anchor drift-check: 检查偏离度
 - memory-anchor review: 多视角代码审查
 - memory-anchor cloud: 云端同步命令（init/push/pull/status）
+- memory-anchor web: 启动 Memory Viewer Web 界面
 """
 
 import typer
@@ -22,6 +23,7 @@ from backend.cli.north_star_cmd import sync_north_star_command
 from backend.cli.review_cmd import review_command
 from backend.cli.serve_cmd import serve_command
 from backend.cli.status_cmd import status_command
+from backend.cli.web_cmd import web_command
 
 app = typer.Typer(
     name="memory-anchor",
@@ -38,6 +40,7 @@ app.command(name="doctor", help="一键自诊断（红叉/端口/依赖/配置�
 app.command(name="sync-north-star", help="同步北极星到宪法层（L0）")(sync_north_star_command)
 app.command(name="drift-check", help="检查当前工作与北极星的偏离度")(drift_check_command)
 app.command(name="review", help="多视角代码审查（Security/Performance/Quality/Memory）")(review_command)
+app.command(name="web", help="启动 Memory Viewer Web 界面")(web_command)
 app.add_typer(cloud_app, name="cloud", help="云端同步命令（push/pull/status）")
 
 
