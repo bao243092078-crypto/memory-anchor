@@ -1,10 +1,13 @@
 import { useState, useCallback } from 'react';
 import { Header, SearchBar, FilterPanel, MemoryList, ConfirmDialog, MemoryDetail } from './components';
+import type { ViewType } from './components/Header';
 import { useMemories } from './hooks/useMemories';
 import { useMemoryActions } from './hooks/useMemoryActions';
+import { TimelinePage } from './pages/TimelinePage';
 import type { Memory, MemoryLayer, NoteCategory } from './types';
 
 function App() {
+  const [currentView, setCurrentView] = useState<ViewType>('search');
   const [selectedLayer, setSelectedLayer] = useState<MemoryLayer | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<NoteCategory[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -124,44 +127,53 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      <Header memoryCount={filteredMemories.length} isLoading={loading} />
+      <Header
+        memoryCount={filteredMemories.length}
+        isLoading={loading}
+        currentView={currentView}
+        onViewChange={setCurrentView}
+      />
 
       <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
-        <div className="flex gap-8">
-          {/* Left sidebar - Filters */}
-          <FilterPanel
-            selectedLayer={selectedLayer}
-            selectedCategories={selectedCategories}
-            onLayerChange={handleLayerChange}
-            onCategoryToggle={handleCategoryToggle}
-            onClearFilters={handleClearFilters}
-          />
+        {currentView === 'timeline' ? (
+          <TimelinePage />
+        ) : (
+          <div className="flex gap-8">
+            {/* Left sidebar - Filters */}
+            <FilterPanel
+              selectedLayer={selectedLayer}
+              selectedCategories={selectedCategories}
+              onLayerChange={handleLayerChange}
+              onCategoryToggle={handleCategoryToggle}
+              onClearFilters={handleClearFilters}
+            />
 
-          {/* Main content */}
-          <div className="flex-1 min-w-0">
-            {/* Search bar */}
-            <div className="mb-8">
-              <SearchBar
-                onSearch={search}
-                onClear={clearSearch}
-                isSearching={isSearching}
-                currentQuery={searchQuery}
+            {/* Main content */}
+            <div className="flex-1 min-w-0">
+              {/* Search bar */}
+              <div className="mb-8">
+                <SearchBar
+                  onSearch={search}
+                  onClear={clearSearch}
+                  isSearching={isSearching}
+                  currentQuery={searchQuery}
+                />
+              </div>
+
+              {/* Memory list */}
+              <MemoryList
+                memories={filteredMemories}
+                loading={loading}
+                error={error}
+                searchQuery={searchQuery}
+                onVerify={handleVerify}
+                onDelete={handleDeleteClick}
+                onCardClick={handleCardClick}
+                verifyingId={verifyingId}
               />
             </div>
-
-            {/* Memory list */}
-            <MemoryList
-              memories={filteredMemories}
-              loading={loading}
-              error={error}
-              searchQuery={searchQuery}
-              onVerify={handleVerify}
-              onDelete={handleDeleteClick}
-              onCardClick={handleCardClick}
-              verifyingId={verifyingId}
-            />
           </div>
-        </div>
+        )}
       </main>
 
       {/* Delete confirmation dialog */}
