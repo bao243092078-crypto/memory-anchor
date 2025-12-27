@@ -1,7 +1,7 @@
 # Memory Anchor Viewer 编辑功能设计
 
 > 日期：2025-12-27
-> 状态：设计完成，待实现
+> 状态：✅ 已完成（2025-12-27）
 
 ## 背景
 
@@ -151,26 +151,26 @@ frontend/viewer/src/
 ### Phase 1 任务
 
 **后端：**
-- [ ] POST /api/v1/notes/{id}/verify
-- [ ] DELETE /api/v1/notes/{id}
+- [x] POST /api/v1/notes/{id}/verify
+- [x] DELETE /api/v1/notes/{id}
 
 **前端：**
-- [ ] MemoryCard.tsx 添加 ✓/✗ 按钮
-- [ ] ConfirmDialog.tsx 删除确认弹窗
-- [ ] api/memory.ts 添加 verify/delete
-- [ ] useMemoryActions.ts hook
+- [x] MemoryCard.tsx 添加 ✓/✗ 按钮
+- [x] ConfirmDialog.tsx 删除确认弹窗
+- [x] api/memory.ts 添加 verify/delete
+- [x] useMemoryActions.ts hook
 
 ### Phase 2 任务
 
-- [ ] MemoryDetail.tsx 弹窗组件
-- [ ] JsonViewer.tsx 折叠 JSON
-- [ ] 点击卡片打开弹窗逻辑
+- [x] MemoryDetail.tsx 弹窗组件
+- [x] JsonViewer.tsx 折叠 JSON
+- [x] 点击卡片打开弹窗逻辑
 
 ### Phase 3-4 任务
 
-- [ ] MemoryEditor.tsx 编辑器
-- [ ] 关联信息编辑 UI
-- [ ] PATCH API 集成
+- [x] 内容编辑（集成到 MemoryDetail）
+- [x] 关联信息编辑 UI（session_id + related_files）
+- [x] PATCH API 集成
 
 ## 决策记录
 
