@@ -292,6 +292,10 @@ uv run pytest
 uv run ruff check backend
 ```
 
+## 更新记录
+
+- 2025-12-27：修复 Cloud Sync 契约与 LWW 逻辑，统一 layer 类型（v2），收紧宪法层写入并加入 API Key/CORS，调整 Qdrant compose 并改用主机侧 readyz 验证。
+
 ## 路线图
 
 ### 已完成 ✅
