@@ -3,6 +3,7 @@ import { Header, SearchBar, FilterPanel, MemoryList, ConfirmDialog, MemoryDetail
 import type { ViewType } from './components/Header';
 import { useMemories } from './hooks/useMemories';
 import { useMemoryActions } from './hooks/useMemoryActions';
+import { useSelection } from './hooks/useSelection';
 import { TimelinePage } from './pages/TimelinePage';
 import type { Memory, MemoryLayer, NoteCategory } from './types';
 
@@ -14,6 +15,8 @@ function App() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
+  const [batchOperating, setBatchOperating] = useState(false);
 
   // Use the first selected category for filtering (API supports single category)
   const filterCategory = selectedCategories.length === 1 ? selectedCategories[0] : undefined;
@@ -34,6 +37,18 @@ function App() {
   });
 
   const { verify, remove, update, deleting, updating } = useMemoryActions();
+
+  // Selection state for batch operations
+  const {
+    selectedIds,
+    toggle: toggleSelection,
+    selectAll,
+    deselectAll,
+    selectedCount,
+    isSelectionMode,
+    enterSelectionMode,
+    exitSelectionMode,
+  } = useSelection<Memory>();
 
   // Filter memories by categories client-side when multiple selected
   const filteredMemories = selectedCategories.length > 1
@@ -125,6 +140,61 @@ function App() {
     return false;
   }, [update, refresh]);
 
+  // Batch operations
+  const handleSelectAll = useCallback(() => {
+    selectAll(filteredMemories);
+  }, [selectAll, filteredMemories]);
+
+  const handleBatchDeleteClick = useCallback(() => {
+    if (selectedCount > 0) {
+      setBatchDeleteDialogOpen(true);
+    }
+  }, [selectedCount]);
+
+  const handleBatchDeleteConfirm = useCallback(async () => {
+    setBatchOperating(true);
+    const ids = Array.from(selectedIds);
+    let successCount = 0;
+
+    for (const id of ids) {
+      const success = await remove(id);
+      if (success) successCount++;
+    }
+
+    setBatchOperating(false);
+    setBatchDeleteDialogOpen(false);
+
+    if (successCount > 0) {
+      exitSelectionMode();
+      refresh();
+    }
+  }, [selectedIds, remove, exitSelectionMode, refresh]);
+
+  const handleBatchDeleteCancel = useCallback(() => {
+    setBatchDeleteDialogOpen(false);
+  }, []);
+
+  const handleBatchVerify = useCallback(async () => {
+    setBatchOperating(true);
+    const ids = Array.from(selectedIds);
+    let successCount = 0;
+
+    for (const id of ids) {
+      const memory = filteredMemories.find((m) => m.id === id);
+      if (memory && memory.confidence < 1) {
+        const success = await verify(id);
+        if (success) successCount++;
+      }
+    }
+
+    setBatchOperating(false);
+
+    if (successCount > 0) {
+      exitSelectionMode();
+      refresh();
+    }
+  }, [selectedIds, filteredMemories, verify, exitSelectionMode, refresh]);
+
   return (
     <div className="min-h-screen bg-gray-50/50">
       <Header
@@ -170,6 +240,15 @@ function App() {
                 onDelete={handleDeleteClick}
                 onCardClick={handleCardClick}
                 verifyingId={verifyingId}
+                selectionMode={isSelectionMode}
+                selectedIds={selectedIds}
+                onSelect={toggleSelection}
+                onSelectAll={handleSelectAll}
+                onDeselectAll={deselectAll}
+                onBatchDelete={handleBatchDeleteClick}
+                onBatchVerify={handleBatchVerify}
+                onEnterSelectionMode={enterSelectionMode}
+                onExitSelectionMode={exitSelectionMode}
               />
             </div>
           </div>
@@ -187,6 +266,19 @@ function App() {
         loading={deleting}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
+      />
+
+      {/* Batch delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={batchDeleteDialogOpen}
+        title="批量删除"
+        message={`确定要删除选中的 ${selectedCount} 条记忆吗？此操作无法撤销。`}
+        confirmText={`删除 ${selectedCount} 条`}
+        cancelText="取消"
+        confirmVariant="danger"
+        loading={batchOperating}
+        onConfirm={handleBatchDeleteConfirm}
+        onCancel={handleBatchDeleteCancel}
       />
 
       {/* Memory detail modal */}

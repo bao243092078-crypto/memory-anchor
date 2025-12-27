@@ -8,9 +8,22 @@ interface MemoryCardProps {
   onDelete?: (id: string) => void;
   onClick?: (memory: Memory) => void;
   verifying?: boolean;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onSelect?: (id: string) => void;
 }
 
-export function MemoryCard({ memory, index = 0, onVerify, onDelete, onClick, verifying }: MemoryCardProps) {
+export function MemoryCard({
+  memory,
+  index = 0,
+  onVerify,
+  onDelete,
+  onClick,
+  verifying,
+  selectionMode = false,
+  selected = false,
+  onSelect,
+}: MemoryCardProps) {
   const layerConfig = LAYER_CONFIG[memory.layer] || {
     label: memory.layer,
     color: 'bg-gray-500',
@@ -36,18 +49,28 @@ export function MemoryCard({ memory, index = 0, onVerify, onDelete, onClick, ver
   };
 
   const handleCardClick = () => {
-    onClick?.(memory);
+    if (selectionMode && onSelect) {
+      onSelect(memory.id);
+    } else {
+      onClick?.(memory);
+    }
+  };
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect?.(memory.id);
   };
 
   return (
     <article
       className={`
         group relative
-        bg-white rounded-2xl border border-gray-100
+        bg-white rounded-2xl border
+        ${selected ? 'border-lime-400 ring-2 ring-lime-100' : 'border-gray-100'}
         hover:border-gray-200 hover:shadow-lg hover:shadow-gray-100/50
         transition-all duration-300 ease-out
         animate-fade-in-up opacity-0
-        ${onClick ? 'cursor-pointer' : ''}
+        ${onClick || selectionMode ? 'cursor-pointer' : ''}
       `}
       style={{ animationDelay: `${index * 0.05}s` }}
       onClick={handleCardClick}
@@ -58,7 +81,32 @@ export function MemoryCard({ memory, index = 0, onVerify, onDelete, onClick, ver
         style={{ opacity: 0.8 }}
       />
 
-      <div className="p-5 pt-6">
+      {/* Selection checkbox */}
+      {selectionMode && (
+        <div
+          className="absolute top-4 left-4 z-10"
+          onClick={handleCheckboxClick}
+        >
+          <div
+            className={`
+              w-5 h-5 rounded-md border-2 flex items-center justify-center
+              transition-all duration-200
+              ${selected
+                ? 'bg-lime-500 border-lime-500'
+                : 'bg-white border-gray-300 hover:border-lime-400'
+              }
+            `}
+          >
+            {selected && (
+              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className={`p-5 pt-6 ${selectionMode ? 'pl-12' : ''}`}>
         {/* Header: Tags + Actions */}
         <div className="flex items-start justify-between gap-2 mb-3">
           {/* Left: Tags */}
