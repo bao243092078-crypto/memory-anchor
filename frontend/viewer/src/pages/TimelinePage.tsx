@@ -1,10 +1,15 @@
+import { useState } from 'react';
 import { useMemories } from '../hooks/useMemories';
 import { useTimelineData } from '../hooks/useTimelineData';
 import { TimelineChart } from '../components/timeline/TimelineChart';
+import { TimelineFilters, type TimeRange, type Granularity } from '../components/timeline/TimelineFilters';
 
 export function TimelinePage() {
+  const [timeRange, setTimeRange] = useState<TimeRange>('all');
+  const [granularity, setGranularity] = useState<Granularity>('day');
+
   const { memories, loading, error } = useMemories({ limit: 1000 });
-  const timelineData = useTimelineData(memories);
+  const timelineData = useTimelineData(memories, { timeRange, granularity });
 
   return (
     <div className="space-y-6">
@@ -19,19 +24,23 @@ export function TimelinePage() {
         <div className="bg-white rounded-xl border border-gray-100 p-4">
           <p className="text-sm text-gray-500">时间跨度</p>
           <p className="text-2xl font-semibold text-gray-900">
-            {loading ? '...' : `${timelineData.length} 天`}
+            {loading ? '...' : `${timelineData.length} ${granularity === 'day' ? '天' : granularity === 'week' ? '周' : '月'}`}
           </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <p className="text-sm text-gray-500">日均记忆</p>
+          <p className="text-sm text-gray-500">
+            {granularity === 'day' ? '日均' : granularity === 'week' ? '周均' : '月均'}记忆
+          </p>
           <p className="text-2xl font-semibold text-gray-900">
             {loading || timelineData.length === 0
               ? '...'
-              : (memories.length / timelineData.length).toFixed(1)}
+              : (timelineData.reduce((sum, d) => sum + d.total, 0) / timelineData.length).toFixed(1)}
           </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <p className="text-sm text-gray-500">最活跃日</p>
+          <p className="text-sm text-gray-500">
+            最活跃{granularity === 'day' ? '日' : granularity === 'week' ? '周' : '月'}
+          </p>
           <p className="text-2xl font-semibold text-gray-900">
             {loading || timelineData.length === 0
               ? '...'
@@ -47,7 +56,15 @@ export function TimelinePage() {
 
       {/* Chart section */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">记忆时间线</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900">记忆时间线</h2>
+          <TimelineFilters
+            timeRange={timeRange}
+            granularity={granularity}
+            onTimeRangeChange={setTimeRange}
+            onGranularityChange={setGranularity}
+          />
+        </div>
 
         {loading ? (
           <div className="h-[400px] flex items-center justify-center">

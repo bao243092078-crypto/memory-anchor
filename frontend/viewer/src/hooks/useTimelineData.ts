@@ -1,13 +1,20 @@
 import { useMemo } from 'react';
 import type { Memory, MemoryLayer } from '../types';
+import type { TimeRange, Granularity } from '../components/timeline/TimelineFilters';
 
 export interface TimelineData {
-  date: string;  // "2025-12-27"
+  date: string;  // "2025-12-27" or "2025-W52" or "2025-12"
+  label: string; // Display label
   L0: number;    // identity_schema
   L2: number;    // event_log
   L3: number;    // verified_fact
   L4: number;    // operational_knowledge
   total: number;
+}
+
+export interface UseTimelineDataOptions {
+  timeRange?: TimeRange;
+  granularity?: Granularity;
 }
 
 // Map layer names to standardized keys
@@ -31,49 +38,132 @@ const layerToKey = (layer: MemoryLayer): 'L0' | 'L2' | 'L3' | 'L4' | null => {
   }
 };
 
-// Format date to YYYY-MM-DD
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  return date.toISOString().split('T')[0];
+// Get start date based on time range
+const getStartDate = (timeRange: TimeRange): Date | null => {
+  if (timeRange === 'all') return null;
+
+  const now = new Date();
+  const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
+  const start = new Date(now);
+  start.setDate(start.getDate() - days);
+  start.setHours(0, 0, 0, 0);
+  return start;
 };
 
-// Generate date range between two dates
-const generateDateRange = (startDate: Date, endDate: Date): string[] => {
-  const dates: string[] = [];
+// Format date based on granularity
+const formatDateByGranularity = (date: Date, granularity: Granularity): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  switch (granularity) {
+    case 'day':
+      return `${year}-${month}-${day}`;
+    case 'week': {
+      // Get ISO week number
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+      return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+    }
+    case 'month':
+      return `${year}-${month}`;
+  }
+};
+
+// Get display label for date key
+const getDateLabel = (dateKey: string, granularity: Granularity): string => {
+  switch (granularity) {
+    case 'day': {
+      const date = new Date(dateKey);
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+    case 'week': {
+      // Format: "W52"
+      const weekMatch = dateKey.match(/W(\d+)/);
+      return weekMatch ? `第${parseInt(weekMatch[1])}周` : dateKey;
+    }
+    case 'month': {
+      // Format: "12月"
+      const monthMatch = dateKey.match(/-(\d+)$/);
+      return monthMatch ? `${parseInt(monthMatch[1])}月` : dateKey;
+    }
+  }
+};
+
+// Generate all date keys in range based on granularity
+const generateDateKeys = (
+  startDate: Date,
+  endDate: Date,
+  granularity: Granularity
+): string[] => {
+  const keys: string[] = [];
   const current = new Date(startDate);
 
   while (current <= endDate) {
-    dates.push(current.toISOString().split('T')[0]);
-    current.setDate(current.getDate() + 1);
+    const key = formatDateByGranularity(current, granularity);
+    if (!keys.includes(key)) {
+      keys.push(key);
+    }
+
+    switch (granularity) {
+      case 'day':
+        current.setDate(current.getDate() + 1);
+        break;
+      case 'week':
+        current.setDate(current.getDate() + 7);
+        break;
+      case 'month':
+        current.setMonth(current.getMonth() + 1);
+        break;
+    }
   }
 
-  return dates;
+  return keys;
 };
 
-export function useTimelineData(memories: Memory[]): TimelineData[] {
+export function useTimelineData(
+  memories: Memory[],
+  options: UseTimelineDataOptions = {}
+): TimelineData[] {
+  const { timeRange = 'all', granularity = 'day' } = options;
+
   return useMemo(() => {
     if (memories.length === 0) {
       return [];
     }
 
-    // Group memories by date
-    const dateMap = new Map<string, TimelineData>();
+    // Filter by time range
+    const startDate = getStartDate(timeRange);
+    const filteredMemories = startDate
+      ? memories.filter((m) => new Date(m.created_at) >= startDate)
+      : memories;
+
+    if (filteredMemories.length === 0) {
+      return [];
+    }
 
     // Find date range
     let minDate = new Date();
     let maxDate = new Date(0);
 
-    memories.forEach((memory) => {
+    filteredMemories.forEach((memory) => {
       const date = new Date(memory.created_at);
       if (date < minDate) minDate = date;
       if (date > maxDate) maxDate = date;
     });
 
-    // Initialize all dates in range
-    const allDates = generateDateRange(minDate, maxDate);
-    allDates.forEach((date) => {
-      dateMap.set(date, {
-        date,
+    // Generate all date keys
+    const allKeys = generateDateKeys(minDate, maxDate, granularity);
+
+    // Initialize map with all keys
+    const dataMap = new Map<string, TimelineData>();
+    allKeys.forEach((key) => {
+      dataMap.set(key, {
+        date: key,
+        label: getDateLabel(key, granularity),
         L0: 0,
         L2: 0,
         L3: 0,
@@ -82,14 +172,15 @@ export function useTimelineData(memories: Memory[]): TimelineData[] {
       });
     });
 
-    // Count memories by date and layer
-    memories.forEach((memory) => {
-      const date = formatDate(memory.created_at);
+    // Count memories by date key and layer
+    filteredMemories.forEach((memory) => {
+      const date = new Date(memory.created_at);
+      const dateKey = formatDateByGranularity(date, granularity);
       const layerKey = layerToKey(memory.layer);
 
       if (!layerKey) return;
 
-      const entry = dateMap.get(date);
+      const entry = dataMap.get(dateKey);
       if (entry) {
         entry[layerKey]++;
         entry.total++;
@@ -97,10 +188,11 @@ export function useTimelineData(memories: Memory[]): TimelineData[] {
     });
 
     // Convert to sorted array
-    return Array.from(dateMap.values()).sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-  }, [memories]);
+    return Array.from(dataMap.values()).sort((a, b) => {
+      // Sort by date key string (works for all formats)
+      return a.date.localeCompare(b.date);
+    });
+  }, [memories, timeRange, granularity]);
 }
 
 // Layer colors for the chart (matching types.ts LAYER_CONFIG)
