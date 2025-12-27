@@ -10,9 +10,40 @@ interface MemoryListProps {
   onDelete?: (id: string) => void;
   onCardClick?: (memory: Memory) => void;
   verifyingId?: string | null;
+  // Batch selection props
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onSelect?: (id: string) => void;
+  onSelectAll?: () => void;
+  onDeselectAll?: () => void;
+  onBatchDelete?: () => void;
+  onBatchVerify?: () => void;
+  onEnterSelectionMode?: () => void;
+  onExitSelectionMode?: () => void;
 }
 
-export function MemoryList({ memories, loading, error, searchQuery, onVerify, onDelete, onCardClick, verifyingId }: MemoryListProps) {
+export function MemoryList({
+  memories,
+  loading,
+  error,
+  searchQuery,
+  onVerify,
+  onDelete,
+  onCardClick,
+  verifyingId,
+  selectionMode = false,
+  selectedIds = new Set(),
+  onSelect,
+  onSelectAll,
+  onDeselectAll,
+  onBatchDelete,
+  onBatchVerify,
+  onEnterSelectionMode,
+  onExitSelectionMode,
+}: MemoryListProps) {
+  const selectedCount = selectedIds.size;
+  const isAllSelected = memories.length > 0 && memories.every((m) => selectedIds.has(m.id));
+  const hasUnverified = memories.some((m) => selectedIds.has(m.id) && m.confidence < 1);
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -67,13 +98,104 @@ export function MemoryList({ memories, loading, error, searchQuery, onVerify, on
 
   return (
     <div className="space-y-4">
-      {searchQuery && (
-        <div className="flex items-center gap-2 mb-6">
-          <span className="text-sm text-gray-500">
-            找到 <span className="font-semibold text-gray-900">{memories.length}</span> 条结果
-          </span>
-          <span className="text-gray-300">•</span>
-          <span className="text-sm text-gray-400">按相关度排序</span>
+      {/* Batch action toolbar */}
+      {selectionMode ? (
+        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl p-3 shadow-sm animate-fade-in">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              {/* Select all checkbox */}
+              <button
+                onClick={isAllSelected ? onDeselectAll : onSelectAll}
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+              >
+                <div
+                  className={`
+                    w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all
+                    ${isAllSelected ? 'bg-lime-500 border-lime-500' : 'bg-white border-gray-300'}
+                  `}
+                >
+                  {isAllSelected && (
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+                全选
+              </button>
+
+              <span className="text-sm text-gray-500">
+                已选择 <span className="font-semibold text-gray-900">{selectedCount}</span> 条
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Batch verify button */}
+              {hasUnverified && onBatchVerify && (
+                <button
+                  onClick={onBatchVerify}
+                  disabled={selectedCount === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-lime-700 bg-lime-50 rounded-lg hover:bg-lime-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  批量验证
+                </button>
+              )}
+
+              {/* Batch delete button */}
+              {onBatchDelete && (
+                <button
+                  onClick={onBatchDelete}
+                  disabled={selectedCount === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  批量删除
+                </button>
+              )}
+
+              {/* Exit selection mode */}
+              <button
+                onClick={onExitSelectionMode}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2 mb-2">
+          {searchQuery ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">
+                找到 <span className="font-semibold text-gray-900">{memories.length}</span> 条结果
+              </span>
+              <span className="text-gray-300">•</span>
+              <span className="text-sm text-gray-400">按相关度排序</span>
+            </div>
+          ) : (
+            <div />
+          )}
+
+          {/* Enter selection mode button */}
+          {memories.length > 0 && onEnterSelectionMode && (
+            <button
+              onClick={onEnterSelectionMode}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              批量操作
+            </button>
+          )}
         </div>
       )}
 
@@ -83,10 +205,13 @@ export function MemoryList({ memories, loading, error, searchQuery, onVerify, on
             key={memory.id}
             memory={memory}
             index={index}
-            onVerify={onVerify}
-            onDelete={onDelete}
-            onClick={onCardClick}
+            onVerify={selectionMode ? undefined : onVerify}
+            onDelete={selectionMode ? undefined : onDelete}
+            onClick={selectionMode ? undefined : onCardClick}
             verifying={verifyingId === memory.id}
+            selectionMode={selectionMode}
+            selected={selectedIds.has(memory.id)}
+            onSelect={onSelect}
           />
         ))}
       </div>
