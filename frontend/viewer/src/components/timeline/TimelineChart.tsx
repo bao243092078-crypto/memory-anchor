@@ -57,11 +57,6 @@ const CustomTooltip = ({
   );
 };
 
-// Format date for X axis
-const formatXAxis = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  return `${date.getMonth() + 1}/${date.getDate()}`;
-};
 
 // Custom legend component
 const CustomLegend = () => (
@@ -114,8 +109,7 @@ export function TimelineChart({ data }: TimelineChartProps) {
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
           <XAxis
-            dataKey="date"
-            tickFormatter={formatXAxis}
+            dataKey="label"
             stroke="#9CA3AF"
             fontSize={12}
           />
