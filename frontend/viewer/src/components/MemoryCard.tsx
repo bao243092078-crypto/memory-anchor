@@ -4,9 +4,12 @@ import { LAYER_CONFIG, CATEGORY_CONFIG } from '../types';
 interface MemoryCardProps {
   memory: Memory;
   index?: number;
+  onVerify?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  verifying?: boolean;
 }
 
-export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
+export function MemoryCard({ memory, index = 0, onVerify, onDelete, verifying }: MemoryCardProps) {
   const layerConfig = LAYER_CONFIG[memory.layer] || {
     label: memory.layer,
     color: 'bg-gray-500',
@@ -49,44 +52,90 @@ export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
       />
 
       <div className="p-5 pt-6">
-        {/* Header: Tags */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          {/* Layer tag */}
-          <span className={`
-            inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg
-            text-xs font-semibold text-white ${layerConfig.color}
-          `}>
-            <span className="text-[10px] opacity-80">{layerConfig.shortLabel}</span>
-            <span className="opacity-90">{layerConfig.label.split(' ').pop()}</span>
-          </span>
-
-          {/* Category tag */}
-          {categoryConfig && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-600 bg-gray-100">
-              <span>{categoryConfig.emoji}</span>
-              <span className="capitalize">{categoryConfig.label}</span>
+        {/* Header: Tags + Actions */}
+        <div className="flex items-start justify-between gap-2 mb-3">
+          {/* Left: Tags */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Layer tag */}
+            <span className={`
+              inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg
+              text-xs font-semibold text-white ${layerConfig.color}
+            `}>
+              <span className="text-[10px] opacity-80">{layerConfig.shortLabel}</span>
+              <span className="opacity-90">{layerConfig.label.split(' ').pop()}</span>
             </span>
-          )}
 
-          {/* Score badge */}
-          {memory.score !== undefined && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-lime-700 bg-lime-100">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              {(memory.score * 100).toFixed(0)}% 匹配
-            </span>
-          )}
+            {/* Category tag */}
+            {categoryConfig && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-600 bg-gray-100">
+                <span>{categoryConfig.emoji}</span>
+                <span className="capitalize">{categoryConfig.label}</span>
+              </span>
+            )}
 
-          {/* Confidence indicator */}
-          {memory.confidence < 1 && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-amber-700 bg-amber-50">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              {(memory.confidence * 100).toFixed(0)}%
-            </span>
-          )}
+            {/* Score badge */}
+            {memory.score !== undefined && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-lime-700 bg-lime-100">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                {(memory.score * 100).toFixed(0)}% 匹配
+              </span>
+            )}
+
+            {/* Confidence indicator */}
+            {memory.confidence < 1 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-amber-700 bg-amber-50">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                {(memory.confidence * 100).toFixed(0)}%
+              </span>
+            )}
+          </div>
+
+          {/* Right: Action buttons */}
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            {/* Verify button - only show if confidence < 1 */}
+            {memory.confidence < 1 && onVerify && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onVerify(memory.id);
+                }}
+                disabled={verifying}
+                className="p-1.5 rounded-lg text-lime-600 hover:bg-lime-50 hover:text-lime-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="确认记忆"
+              >
+                {verifying ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            )}
+
+            {/* Delete button */}
+            {onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(memory.id);
+                }}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                title="删除记忆"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Content */}

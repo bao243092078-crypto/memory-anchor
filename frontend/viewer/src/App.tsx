@@ -1,11 +1,15 @@
 import { useState, useCallback } from 'react';
-import { Header, SearchBar, FilterPanel, MemoryList } from './components';
+import { Header, SearchBar, FilterPanel, MemoryList, ConfirmDialog } from './components';
 import { useMemories } from './hooks/useMemories';
+import { useMemoryActions } from './hooks/useMemoryActions';
 import type { MemoryLayer, NoteCategory } from './types';
 
 function App() {
   const [selectedLayer, setSelectedLayer] = useState<MemoryLayer | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<NoteCategory[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
   // Use the first selected category for filtering (API supports single category)
   const filterCategory = selectedCategories.length === 1 ? selectedCategories[0] : undefined;
@@ -18,11 +22,14 @@ function App() {
     isSearching,
     searchQuery,
     clearSearch,
+    refresh,
   } = useMemories({
     layer: selectedLayer || undefined,
     category: filterCategory,
     limit: 100,
   });
+
+  const { verify, remove, deleting } = useMemoryActions();
 
   // Filter memories by categories client-side when multiple selected
   const filteredMemories = selectedCategories.length > 1
@@ -44,6 +51,36 @@ function App() {
   const handleClearFilters = useCallback(() => {
     setSelectedLayer(null);
     setSelectedCategories([]);
+  }, []);
+
+  const handleVerify = useCallback(async (id: string) => {
+    setVerifyingId(id);
+    const result = await verify(id);
+    setVerifyingId(null);
+    if (result) {
+      refresh();
+    }
+  }, [verify, refresh]);
+
+  const handleDeleteClick = useCallback((id: string) => {
+    setPendingDeleteId(id);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (pendingDeleteId) {
+      const success = await remove(pendingDeleteId);
+      if (success) {
+        refresh();
+      }
+    }
+    setDeleteDialogOpen(false);
+    setPendingDeleteId(null);
+  }, [pendingDeleteId, remove, refresh]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setPendingDeleteId(null);
   }, []);
 
   return (
@@ -79,10 +116,26 @@ function App() {
               loading={loading}
               error={error}
               searchQuery={searchQuery}
+              onVerify={handleVerify}
+              onDelete={handleDeleteClick}
+              verifyingId={verifyingId}
             />
           </div>
         </div>
       </main>
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={deleteDialogOpen}
+        title="删除记忆"
+        message="确定要删除这条记忆吗？此操作无法撤销。"
+        confirmText="删除"
+        cancelText="取消"
+        confirmVariant="danger"
+        loading={deleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </div>
   );
 }

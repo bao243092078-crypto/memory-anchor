@@ -6,9 +6,12 @@ interface MemoryListProps {
   loading: boolean;
   error: string | null;
   searchQuery: string;
+  onVerify?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  verifyingId?: string | null;
 }
 
-export function MemoryList({ memories, loading, error, searchQuery }: MemoryListProps) {
+export function MemoryList({ memories, loading, error, searchQuery, onVerify, onDelete, verifyingId }: MemoryListProps) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -75,7 +78,14 @@ export function MemoryList({ memories, loading, error, searchQuery }: MemoryList
 
       <div className="grid gap-4">
         {memories.map((memory, index) => (
-          <MemoryCard key={memory.id} memory={memory} index={index} />
+          <MemoryCard
+            key={memory.id}
+            memory={memory}
+            index={index}
+            onVerify={onVerify}
+            onDelete={onDelete}
+            verifying={verifyingId === memory.id}
+          />
         ))}
       </div>
     </div>

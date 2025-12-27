@@ -106,6 +106,15 @@ class NoteUpdate(BaseModel):
     priority: int | None = Field(default=None, ge=0, le=999)
     expires_at: datetime | None = None
     is_active: bool | None = None
+    # v2.1 可追溯性字段
+    session_id: str | None = None
+    related_files: list[str] | None = None
+
+
+class NoteVerify(BaseModel):
+    """确认记忆请求"""
+
+    verified_by: str = Field(default="human", description="确认者身份")
 
 
 class ReminderCreate(BaseModel):

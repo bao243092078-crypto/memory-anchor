@@ -125,6 +125,11 @@ class NotesService:
         priority: int | None | object = _UNSET,
         expires_at: datetime | None | object = _UNSET,
         is_active: bool | None | object = _UNSET,
+        # v2.1 新增字段
+        confidence: float | None | object = _UNSET,
+        last_verified: datetime | None | object = _UNSET,
+        session_id: str | None | object = _UNSET,
+        related_files: list[str] | None | object = _UNSET,
     ) -> dict:
         raw = await self.get(note_id)
         if not raw:
@@ -163,6 +168,30 @@ class NotesService:
 
         if is_active is not _UNSET and is_active is not None:
             payload["is_active"] = bool(is_active)
+
+        # v2.1 新增字段
+        if confidence is not _UNSET and confidence is not None:
+            payload["confidence"] = float(confidence)
+
+        if last_verified is not _UNSET:
+            if last_verified is None:
+                payload.pop("last_verified", None)
+            else:
+                payload["last_verified"] = (
+                    last_verified.isoformat() if isinstance(last_verified, datetime) else str(last_verified)
+                )
+
+        if session_id is not _UNSET:
+            if session_id is None:
+                payload.pop("session_id", None)
+            else:
+                payload["session_id"] = str(session_id)
+
+        if related_files is not _UNSET:
+            if related_files is None:
+                payload.pop("related_files", None)
+            else:
+                payload["related_files"] = list(related_files)
 
         await asyncio.to_thread(self.kernel.search.update_note, note_id, payload)
         return payload

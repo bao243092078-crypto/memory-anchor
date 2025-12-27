@@ -92,3 +92,6 @@ qdrant_storage/
 .data/
 # Node依赖
 node_modules/
+
+# Git worktrees
+.worktrees/

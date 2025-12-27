@@ -11,6 +11,7 @@ from backend.models.note import (
     NoteCreate,
     NoteResponse,
     NoteUpdate,
+    NoteVerify,
 )
 from backend.services.notes_service import get_notes_service
 
@@ -75,6 +76,9 @@ def _to_response(data: dict) -> NoteResponse:
         expires_at=payload.get("expires_at"),
         last_verified=payload.get("last_verified"),
         is_active=is_active,
+        # v2.1 可追溯性字段
+        session_id=payload.get("session_id"),
+        related_files=payload.get("related_files"),
     )
 
 
@@ -162,11 +166,40 @@ async def update_note(note_id: UUID, note: NoteUpdate) -> NoteResponse:
         kwargs["expires_at"] = update_data["expires_at"]
     if "is_active" in update_data:
         kwargs["is_active"] = update_data["is_active"]
+    # v2.1 可追溯性字段
+    if "session_id" in update_data:
+        kwargs["session_id"] = update_data["session_id"]
+    if "related_files" in update_data:
+        kwargs["related_files"] = update_data["related_files"]
 
     try:
         updated = await service.update(note_id, **kwargs)
     except KeyError:
         raise HTTPException(status_code=404, detail="便利贴不存在")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return _to_response(updated)
+
+
+@router.post("/{note_id}/verify", response_model=NoteResponse)
+async def verify_note(note_id: UUID, body: NoteVerify) -> NoteResponse:
+    """
+    确认记忆（将 confidence 设为 1.0）
+
+    用于人工确认 AI 提取的记忆，消除 ⚠️ 警告标记。
+    """
+    service = get_notes_service()
+
+    try:
+        # 更新 confidence 为 1.0，并记录确认时间
+        updated = await service.update(
+            note_id,
+            confidence=1.0,
+            last_verified=datetime.now(),
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="记忆不存在")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

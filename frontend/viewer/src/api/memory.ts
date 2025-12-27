@@ -90,3 +90,57 @@ export async function getMemory(id: string): Promise<Memory | null> {
 
   return response.json();
 }
+
+/**
+ * Verify a memory (set confidence to 1.0)
+ */
+export async function verifyMemory(id: string): Promise<Memory> {
+  const response = await fetch(`${API_BASE}/notes/${id}/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ verified_by: 'human' }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Verify failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Delete a memory (soft delete)
+ */
+export async function deleteMemory(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/notes/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Delete failed: ${response.statusText}`);
+  }
+}
+
+/**
+ * Update a memory
+ */
+export async function updateMemory(
+  id: string,
+  data: {
+    content?: string;
+    session_id?: string;
+    related_files?: string[];
+  }
+): Promise<Memory> {
+  const response = await fetch(`${API_BASE}/notes/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Update failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}
