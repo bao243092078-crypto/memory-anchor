@@ -273,6 +273,8 @@ docker run -d -p 6333:6333 --name qdrant qdrant/qdrant
 
 # 就绪检查
 curl http://localhost:6333/readyz
+# 如果之前用过旧的 compose 配置，可强制重建
+docker compose -p memory-anchor up -d --force-recreate qdrant
 
 # 连接配置
 export QDRANT_URL=http://localhost:6333
