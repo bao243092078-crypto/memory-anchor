@@ -30,7 +30,7 @@ function App() {
     limit: 100,
   });
 
-  const { verify, remove, deleting } = useMemoryActions();
+  const { verify, remove, update, deleting, updating } = useMemoryActions();
 
   // Filter memories by categories client-side when multiple selected
   const filteredMemories = selectedCategories.length > 1
@@ -109,6 +109,16 @@ function App() {
     setDeleteDialogOpen(true);
   }, []);
 
+  const handleDetailSave = useCallback(async (id: string, data: { content: string }): Promise<boolean> => {
+    const result = await update(id, data);
+    if (result) {
+      setSelectedMemory(result);
+      refresh();
+      return true;
+    }
+    return false;
+  }, [update, refresh]);
+
   return (
     <div className="min-h-screen bg-gray-50/50">
       <Header memoryCount={filteredMemories.length} isLoading={loading} />
@@ -172,7 +182,9 @@ function App() {
           onClose={handleDetailClose}
           onVerify={handleDetailVerify}
           onDelete={handleDetailDelete}
+          onSave={handleDetailSave}
           verifying={verifyingId === selectedMemory.id}
+          saving={updating}
         />
       )}
     </div>
