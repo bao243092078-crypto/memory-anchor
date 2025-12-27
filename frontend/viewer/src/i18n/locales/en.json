@@ -1,0 +1,138 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "save": "Save",
+    "close": "Close",
+    "search": "Search",
+    "all": "All"
+  },
+  "header": {
+    "title": "Memory Anchor",
+    "subtitle": "Memory Anchor",
+    "memoryCount": "Memories",
+    "builtBy": "Built by Claude",
+    "searchTab": "Search",
+    "timelineTab": "Timeline"
+  },
+  "project": {
+    "switchProject": "Switch Project",
+    "projectCount": "{{count}} projects",
+    "noProjects": "No projects",
+    "constitution": "Constitution",
+    "restartRequired": "Restart required to switch project",
+    "copyEnvVar": "Copy env variable",
+    "copied": "Copied!",
+    "types": {
+      "ai-development": "AI Development",
+      "patient-care": "Patient Care",
+      "knowledge-base": "Knowledge Base"
+    }
+  },
+  "filter": {
+    "title": "Filters",
+    "layers": "Memory Layers",
+    "categories": "Categories",
+    "clearFilters": "Clear Filters"
+  },
+  "layer": {
+    "identity_schema": "L0 Identity Schema",
+    "active_context": "L1 Active Context",
+    "event_log": "L2 Event Log",
+    "verified_fact": "L3 Verified Fact",
+    "operational_knowledge": "L4 Operational Knowledge"
+  },
+  "category": {
+    "person": "Person",
+    "place": "Place",
+    "event": "Event",
+    "item": "Item",
+    "routine": "Routine"
+  },
+  "search": {
+    "placeholder": "Search memories...",
+    "searching": "Searching...",
+    "noResults": "No matching results",
+    "tryOther": "Try other search terms or clear filters",
+    "foundResults": "Found {{count}} results",
+    "sortedByRelevance": "Sorted by relevance"
+  },
+  "memory": {
+    "noMemories": "No memories",
+    "addHint": "Memories will appear here once added",
+    "loadingMemories": "Loading memories...",
+    "connectionError": "Connection Error",
+    "match": "{{percent}}% match",
+    "confidence": "{{percent}}%",
+    "session": "Session",
+    "relatedFiles": "Related Files",
+    "verifyTitle": "Verify Memory",
+    "deleteTitle": "Delete Memory"
+  },
+  "batch": {
+    "operations": "Batch Operations",
+    "selectAll": "Select All",
+    "selected": "{{count}} selected",
+    "batchVerify": "Batch Verify",
+    "batchDelete": "Batch Delete",
+    "deleteConfirmTitle": "Batch Delete",
+    "deleteConfirmMessage": "Are you sure you want to delete {{count}} selected memories? This cannot be undone.",
+    "deleteButton": "Delete {{count}}"
+  },
+  "detail": {
+    "edit": "Edit",
+    "saveChanges": "Save Changes",
+    "cancelEdit": "Cancel Edit",
+    "verify": "Verify",
+    "delete": "Delete",
+    "content": "Content",
+    "sessionId": "Session ID",
+    "relatedFiles": "Related Files",
+    "createdAt": "Created At",
+    "confidence": "Confidence",
+    "layer": "Layer",
+    "category": "Category",
+    "addFile": "Add Related File"
+  },
+  "timeline": {
+    "title": "Timeline Analysis",
+    "subtitle": "Memory Distribution Trends",
+    "timeRange": "Time Range",
+    "granularity": "Granularity",
+    "range": {
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "all": "All time"
+    },
+    "granularityOptions": {
+      "day": "Daily",
+      "week": "Weekly",
+      "month": "Monthly"
+    },
+    "stats": {
+      "totalMemories": "Total Memories",
+      "averagePerDay": "Daily Avg",
+      "averagePerWeek": "Weekly Avg",
+      "averagePerMonth": "Monthly Avg",
+      "layers": "Layer Distribution",
+      "dateRange": "Date Range",
+      "days": "days",
+      "weeks": "weeks",
+      "months": "months"
+    },
+    "noData": "No data"
+  },
+  "dialog": {
+    "deleteTitle": "Delete Memory",
+    "deleteMessage": "Are you sure you want to delete this memory? This cannot be undone."
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo": "{{count}} days ago"
+  }
+}

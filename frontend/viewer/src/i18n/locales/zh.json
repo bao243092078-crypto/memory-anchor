@@ -1,0 +1,138 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "save": "保存",
+    "close": "关闭",
+    "search": "搜索",
+    "all": "全部"
+  },
+  "header": {
+    "title": "记忆锚点",
+    "subtitle": "Memory Anchor",
+    "memoryCount": "记忆条目",
+    "builtBy": "由 Claude 构建",
+    "searchTab": "搜索",
+    "timelineTab": "时间线"
+  },
+  "project": {
+    "switchProject": "切换项目",
+    "projectCount": "共 {{count}} 个项目",
+    "noProjects": "暂无项目",
+    "constitution": "宪法层",
+    "restartRequired": "切换项目需要重启服务",
+    "copyEnvVar": "复制环境变量",
+    "copied": "已复制!",
+    "types": {
+      "ai-development": "AI 开发",
+      "patient-care": "患者护理",
+      "knowledge-base": "知识库"
+    }
+  },
+  "filter": {
+    "title": "筛选器",
+    "layers": "记忆层级",
+    "categories": "分类",
+    "clearFilters": "清除筛选"
+  },
+  "layer": {
+    "identity_schema": "L0 身份图式",
+    "active_context": "L1 工作记忆",
+    "event_log": "L2 事件日志",
+    "verified_fact": "L3 验证事实",
+    "operational_knowledge": "L4 操作知识"
+  },
+  "category": {
+    "person": "人物",
+    "place": "地点",
+    "event": "事件",
+    "item": "物品",
+    "routine": "习惯"
+  },
+  "search": {
+    "placeholder": "搜索记忆...",
+    "searching": "搜索中...",
+    "noResults": "未找到匹配结果",
+    "tryOther": "试试其他搜索词或清除筛选条件",
+    "foundResults": "找到 {{count}} 条结果",
+    "sortedByRelevance": "按相关度排序"
+  },
+  "memory": {
+    "noMemories": "暂无记忆",
+    "addHint": "添加记忆后将显示在这里",
+    "loadingMemories": "加载记忆中...",
+    "connectionError": "连接错误",
+    "match": "{{percent}}% 匹配",
+    "confidence": "{{percent}}%",
+    "session": "会话",
+    "relatedFiles": "关联文件",
+    "verifyTitle": "确认记忆",
+    "deleteTitle": "删除记忆"
+  },
+  "batch": {
+    "operations": "批量操作",
+    "selectAll": "全选",
+    "selected": "已选择 {{count}} 条",
+    "batchVerify": "批量验证",
+    "batchDelete": "批量删除",
+    "deleteConfirmTitle": "批量删除",
+    "deleteConfirmMessage": "确定要删除选中的 {{count}} 条记忆吗？此操作无法撤销。",
+    "deleteButton": "删除 {{count}} 条"
+  },
+  "detail": {
+    "edit": "编辑",
+    "saveChanges": "保存修改",
+    "cancelEdit": "取消编辑",
+    "verify": "验证",
+    "delete": "删除",
+    "content": "内容",
+    "sessionId": "会话 ID",
+    "relatedFiles": "关联文件",
+    "createdAt": "创建时间",
+    "confidence": "置信度",
+    "layer": "层级",
+    "category": "分类",
+    "addFile": "添加关联文件"
+  },
+  "timeline": {
+    "title": "时间线分析",
+    "subtitle": "记忆分布趋势",
+    "timeRange": "时间范围",
+    "granularity": "粒度",
+    "range": {
+      "7d": "近7天",
+      "30d": "近30天",
+      "90d": "近90天",
+      "all": "全部"
+    },
+    "granularityOptions": {
+      "day": "按天",
+      "week": "按周",
+      "month": "按月"
+    },
+    "stats": {
+      "totalMemories": "记忆总数",
+      "averagePerDay": "日均",
+      "averagePerWeek": "周均",
+      "averagePerMonth": "月均",
+      "layers": "层级分布",
+      "dateRange": "时间跨度",
+      "days": "天",
+      "weeks": "周",
+      "months": "月"
+    },
+    "noData": "暂无数据"
+  },
+  "dialog": {
+    "deleteTitle": "删除记忆",
+    "deleteMessage": "确定要删除这条记忆吗？此操作无法撤销。"
+  },
+  "time": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "daysAgo": "{{count}} 天前"
+  }
+}
