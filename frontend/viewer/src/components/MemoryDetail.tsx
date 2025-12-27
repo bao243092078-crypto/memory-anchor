@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Memory } from '../types';
 import { LAYER_CONFIG, CATEGORY_CONFIG } from '../types';
 import { JsonViewer } from './JsonViewer';
@@ -9,7 +9,9 @@ interface MemoryDetailProps {
   onClose: () => void;
   onVerify?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onSave?: (id: string, data: { content: string }) => Promise<boolean>;
   verifying?: boolean;
+  saving?: boolean;
 }
 
 export function MemoryDetail({
@@ -18,9 +20,19 @@ export function MemoryDetail({
   onClose,
   onVerify,
   onDelete,
+  onSave,
   verifying,
+  saving,
 }: MemoryDetailProps) {
   const [showJson, setShowJson] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState(memory.content);
+
+  // Reset edit state when memory changes
+  useEffect(() => {
+    setEditContent(memory.content);
+    setEditing(false);
+  }, [memory.id, memory.content]);
 
   if (!isOpen) return null;
 
@@ -47,6 +59,24 @@ export function MemoryDetail({
       onClose();
     }
   };
+
+  const handleSave = async () => {
+    if (onSave && editContent !== memory.content) {
+      const success = await onSave(memory.id, { content: editContent });
+      if (success) {
+        setEditing(false);
+      }
+    } else {
+      setEditing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditContent(memory.content);
+    setEditing(false);
+  };
+
+  const hasChanges = editContent !== memory.content;
 
   return (
     <div
@@ -140,12 +170,59 @@ export function MemoryDetail({
           <section>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-gray-500">内容</h3>
-              {/* Edit button placeholder for Phase 3 */}
+              {onSave && !editing && (
+                <button
+                  onClick={() => setEditing(true)}
+                  className="text-xs text-lime-600 hover:text-lime-700 flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  编辑
+                </button>
+              )}
+              {editing && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCancel}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving || !hasChanges}
+                    className="text-xs text-lime-600 hover:text-lime-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    {saving ? (
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    保存
+                  </button>
+                </div>
+              )}
             </div>
             <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-gray-900 text-sm leading-relaxed whitespace-pre-wrap">
-                {memory.content}
-              </p>
+              {editing ? (
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  className="w-full min-h-[120px] text-gray-900 text-sm leading-relaxed bg-white border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent resize-y"
+                  placeholder="输入记忆内容..."
+                  autoFocus
+                />
+              ) : (
+                <p className="text-gray-900 text-sm leading-relaxed whitespace-pre-wrap">
+                  {memory.content}
+                </p>
+              )}
             </div>
           </section>
 
