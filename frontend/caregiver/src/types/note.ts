@@ -19,6 +19,20 @@ export type MemoryLayerV1 = 'constitution' | 'fact' | 'session';
 // 统一类型（支持新旧两种）
 export type MemoryLayer = MemoryLayerV2 | MemoryLayerV1;
 
+export const V2_LAYERS: MemoryLayerV2[] = [
+  'identity_schema',
+  'active_context',
+  'event_log',
+  'verified_fact',
+  'operational_knowledge',
+];
+
+export const NOTE_CREATION_LAYERS: MemoryLayerV2[] = [
+  'identity_schema',
+  'verified_fact',
+  'event_log',
+];
+
 // 记忆分类
 export type NoteCategory = 'person' | 'place' | 'event' | 'item' | 'routine';
 

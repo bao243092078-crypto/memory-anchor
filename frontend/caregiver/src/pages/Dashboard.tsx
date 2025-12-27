@@ -5,6 +5,7 @@ import { useConstitution, usePendingChanges } from '../hooks/useConstitution';
 import { NoteCard } from '../components/Note/NoteCard';
 import { Loading } from '../components/Common/Loading';
 import { LayerBadge } from '../components/Note/LayerBadge';
+import { normalizeLayer } from '../types/note';
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -40,8 +41,8 @@ export function DashboardPage() {
 
   // 统计数据
   const totalNotes = notes?.length || 0;
-  const factNotes = notes?.filter((n) => n.layer === 'fact').length || 0;
-  const sessionNotes = notes?.filter((n) => n.layer === 'session').length || 0;
+  const factNotes = notes?.filter((n) => normalizeLayer(n.layer) === 'verified_fact').length || 0;
+  const sessionNotes = notes?.filter((n) => normalizeLayer(n.layer) === 'event_log').length || 0;
   const constitutionCount = constitution?.length || 0;
   const pendingCount = pendingChanges?.length || 0;
 
@@ -91,15 +92,15 @@ export function DashboardPage() {
         <h3 className="font-medium text-gray-900 mb-3">记忆层级分布</h3>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <LayerBadge layer="constitution" size="sm" />
+            <LayerBadge layer="identity_schema" size="sm" />
             <span className="text-gray-600">{constitutionCount} 条</span>
           </div>
           <div className="flex items-center gap-2">
-            <LayerBadge layer="fact" size="sm" />
+            <LayerBadge layer="verified_fact" size="sm" />
             <span className="text-gray-600">{factNotes} 条</span>
           </div>
           <div className="flex items-center gap-2">
-            <LayerBadge layer="session" size="sm" />
+            <LayerBadge layer="event_log" size="sm" />
             <span className="text-gray-600">{sessionNotes} 条</span>
           </div>
         </div>

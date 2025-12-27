@@ -25,7 +25,7 @@ class QdrantMemoryBackend(AbstractMemoryBackend):
     特点：
     - 语义搜索（向量相似度）
     - 支持 Server 和 Local 两种模式
-    - 自动降级
+    - 本地模式仅用于测试
     """
 
     def __init__(self, search_service: Optional[SearchService] = None):
@@ -111,10 +111,15 @@ class QdrantMemoryBackend(AbstractMemoryBackend):
             # Handle payload which might be None
             payload = point.payload or {}
 
+            try:
+                layer = MemoryLayer.from_string(payload.get("layer", "fact"))
+            except ValueError:
+                layer = MemoryLayer.FACT
+
             return MemoryItem(
                 id=point_id,
                 content=payload.get("content", ""),
-                layer=MemoryLayer(payload.get("layer", "fact")),
+                layer=layer,
                 category=MemoryCategory(payload["category"]) if payload.get("category") else None,
                 confidence=payload.get("confidence", 1.0),
                 score=1.0,

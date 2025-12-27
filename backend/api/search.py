@@ -2,6 +2,7 @@
 Search API routes for Memory Anchor.
 语义搜索 API，支持过滤和分页。
 """
+import asyncio
 from typing import List, Optional
 
 from fastapi import APIRouter, Query
@@ -79,7 +80,8 @@ async def search_notes(
     # 规范化层级名称（v1.x → v2.x）
     normalized_layer = normalize_layer(layer)
 
-    results = service.search(
+    results = await asyncio.to_thread(
+        service.search,
         query=q,
         limit=limit,
         layer=normalized_layer,
@@ -87,10 +89,16 @@ async def search_notes(
         only_active=only_active,
     )
 
+    normalized_results: list[SearchResult] = []
+    for r in results:
+        payload = dict(r)
+        payload["layer"] = normalize_layer(payload.get("layer"))
+        normalized_results.append(SearchResult(**payload))
+
     return SearchResponse(
         query=q,
-        results=[SearchResult(**r) for r in results],
-        total=len(results),
+        results=normalized_results,
+        total=len(normalized_results),
     )
 
 
@@ -102,7 +110,7 @@ async def get_search_stats():
     返回索引中的便利贴总数、向量维度等信息。
     """
     service = get_search_service()
-    stats = service.get_stats()
+    stats = await asyncio.to_thread(service.get_stats)
     return IndexStats(**stats)
 
 

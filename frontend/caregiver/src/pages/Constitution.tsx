@@ -88,7 +88,7 @@ export function ConstitutionPage() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <LayerBadge layer="constitution" size="sm" />
+                    <LayerBadge layer="identity_schema" size="sm" />
                     {item.category && CATEGORY_CONFIG[item.category as NoteCategory] && (
                       <span className="text-sm text-gray-500">
                         {CATEGORY_CONFIG[item.category as NoteCategory].icon} {CATEGORY_CONFIG[item.category as NoteCategory].label}

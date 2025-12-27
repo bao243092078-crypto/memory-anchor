@@ -5,14 +5,30 @@ Memory Anchor - 记忆锚点
 启动命令: uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 """
 
-from fastapi import FastAPI
+import logging
+import os
+
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.api.auth import verify_api_key
 from backend.api.constitution import router as constitution_router
 from backend.api.memory import router as memory_router
 from backend.api.notes import router as notes_router
 from backend.api.pending import router as pending_router
 from backend.api.search import router as search_router
+
+logger = logging.getLogger(__name__)
+
+
+def _load_cors_origins() -> list[str]:
+    raw = os.getenv("MA_CORS_ALLOW_ORIGINS")
+    if raw:
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
 
 app = FastAPI(
     title="Memory Anchor API",
@@ -22,21 +38,26 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS 配置（开发环境允许所有来源）
+# CORS 配置
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 生产环境需要限制
+    allow_origins=_load_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # 注册路由
-app.include_router(notes_router, prefix="/api/v1")
-app.include_router(search_router)  # search 路由已有 /api/v1 前缀
-app.include_router(memory_router)  # memory 路由已有 /api/v1/memory 前缀
-app.include_router(constitution_router, prefix="/api/v1")  # 宪法层变更路由
-app.include_router(pending_router)  # pending 路由已有 /api/v1/pending 前缀
+api_dependencies = [Depends(verify_api_key)]
+
+if not os.getenv("MA_API_KEY"):
+    logger.warning("MA_API_KEY not set; API auth is disabled.")
+
+app.include_router(notes_router, prefix="/api/v1", dependencies=api_dependencies)
+app.include_router(search_router, dependencies=api_dependencies)  # search 路由已有 /api/v1 前缀
+app.include_router(memory_router, dependencies=api_dependencies)  # memory 路由已有 /api/v1/memory 前缀
+app.include_router(constitution_router, prefix="/api/v1", dependencies=api_dependencies)  # 宪法层变更路由
+app.include_router(pending_router, dependencies=api_dependencies)  # pending 路由已有 /api/v1/pending 前缀
 
 
 @app.get("/")

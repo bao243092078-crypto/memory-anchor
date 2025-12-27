@@ -2,7 +2,7 @@ import { Edit2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 import type { Note, NoteCategory } from '../../types/note';
-import { CATEGORY_CONFIG } from '../../types/note';
+import { CATEGORY_CONFIG, normalizeLayer } from '../../types/note';
 import { LayerBadge } from './LayerBadge';
 
 interface NoteCardProps {
@@ -13,14 +13,15 @@ interface NoteCardProps {
 
 export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
   const categoryConfig = note.category ? CATEGORY_CONFIG[note.category as NoteCategory] : null;
+  const normalizedLayer = normalizeLayer(note.layer);
 
   return (
     <div
       className={clsx(
         'bg-white rounded-lg shadow-sm border p-4 transition-shadow hover:shadow-md',
-        note.layer === 'constitution' && 'border-l-4 border-l-red-500',
-        note.layer === 'fact' && 'border-l-4 border-l-blue-500',
-        note.layer === 'session' && 'border-l-4 border-l-green-500',
+        normalizedLayer === 'identity_schema' && 'border-l-4 border-l-red-500',
+        normalizedLayer === 'verified_fact' && 'border-l-4 border-l-blue-500',
+        normalizedLayer === 'event_log' && 'border-l-4 border-l-green-500',
         !note.is_active && 'opacity-60'
       )}
     >

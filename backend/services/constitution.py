@@ -24,13 +24,9 @@ from backend.models.constitution_change import (
 )
 from backend.models.note import MemoryLayer
 
-# 数据库路径
-DB_PATH = get_config().sqlite_path
-
-
 def _get_db_path() -> Path:
-    """获取宪法层审批数据库路径（可在测试中通过 monkeypatch DB_PATH 覆盖）"""
-    return DB_PATH
+    """获取宪法层审批数据库路径（可在测试中通过 monkeypatch get_config 覆盖）"""
+    return get_config().sqlite_path
 
 
 def _init_db():
@@ -75,6 +71,7 @@ class ConstitutionService:
 
     def _get_conn(self) -> sqlite3.Connection:
         """获取数据库连接"""
+        _init_db()
         conn = sqlite3.connect(str(_get_db_path()))
         conn.row_factory = sqlite3.Row
         return conn
@@ -161,60 +158,80 @@ class ConstitutionService:
         """
         conn = self._get_conn()
         cursor = conn.cursor()
-
-        # 获取当前记录
-        cursor.execute(
-            "SELECT * FROM constitution_changes WHERE id = ?",
-            (str(change_id),)
-        )
-        row = cursor.fetchone()
-
-        if not row:
-            conn.close()
-            raise ValueError(f"变更记录不存在: {change_id}")
-
-        if row["status"] != ChangeStatus.PENDING.value:
-            conn.close()
-            raise ValueError(f"变更状态不是 pending: {row['status']}")
-
-        # 更新审批信息
         now = datetime.now().isoformat()
-        approvals = json.loads(row["approvals"])
-        approvals.append({
-            "approver": request.approver,
-            "comment": request.comment,
-            "approved_at": now,
-        })
-        new_count = row["approvals_count"] + 1
 
-        # 判断是否达到审批次数
-        if new_count >= self.APPROVALS_NEEDED:
-            new_status = ChangeStatus.APPROVED.value
-            # 自动应用变更
-            await self._apply_change(row)
-            new_status = ChangeStatus.APPLIED.value
-            applied_at = now
-        else:
-            new_status = ChangeStatus.PENDING.value
-            applied_at = None
+        try:
+            cursor.execute("BEGIN IMMEDIATE")
 
-        # 更新数据库
-        cursor.execute("""
-            UPDATE constitution_changes
-            SET approvals_count = ?, approvals = ?, status = ?,
-                updated_at = ?, applied_at = ?
-            WHERE id = ?
-        """, (
-            new_count,
-            json.dumps(approvals),
-            new_status,
-            now,
-            applied_at,
-            str(change_id),
-        ))
+            # 获取当前记录（加写锁）
+            cursor.execute(
+                "SELECT * FROM constitution_changes WHERE id = ?",
+                (str(change_id),)
+            )
+            row = cursor.fetchone()
 
-        conn.commit()
-        conn.close()
+            if not row:
+                raise ValueError(f"变更记录不存在: {change_id}")
+
+            if row["status"] != ChangeStatus.PENDING.value:
+                raise ValueError(f"变更状态不是 pending: {row['status']}")
+
+            approvals = json.loads(row["approvals"])
+            if any(a.get("approver") == request.approver for a in approvals):
+                raise ValueError(f"审批人已审批过: {request.approver}")
+
+            approvals.append({
+                "approver": request.approver,
+                "comment": request.comment,
+                "approved_at": now,
+            })
+            new_count = row["approvals_count"] + 1
+
+            should_apply = new_count >= self.APPROVALS_NEEDED
+            new_status = ChangeStatus.APPROVED.value if should_apply else ChangeStatus.PENDING.value
+
+            cursor.execute("""
+                UPDATE constitution_changes
+                SET approvals_count = ?, approvals = ?, status = ?, updated_at = ?
+                WHERE id = ?
+            """, (
+                new_count,
+                json.dumps(approvals),
+                new_status,
+                now,
+                str(change_id),
+            ))
+
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+        applied_at = None
+        if should_apply:
+            try:
+                await self._apply_change(row)
+                applied_at = now
+                conn_apply = self._get_conn()
+                cursor_apply = conn_apply.cursor()
+                cursor_apply.execute("""
+                    UPDATE constitution_changes
+                    SET status = ?, applied_at = ?, updated_at = ?
+                    WHERE id = ? AND status = ?
+                """, (
+                    ChangeStatus.APPLIED.value,
+                    applied_at,
+                    now,
+                    str(change_id),
+                    ChangeStatus.APPROVED.value,
+                ))
+                conn_apply.commit()
+                conn_apply.close()
+                new_status = ChangeStatus.APPLIED.value
+            except Exception as e:
+                raise ValueError(f"应用宪法变更失败: {e}") from e
 
         return ConstitutionChangeResponse(
             id=change_id,

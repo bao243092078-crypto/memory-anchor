@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import type { MemoryLayer } from '../../types/note';
-import { LAYER_CONFIG } from '../../types/note';
+import { LAYER_CONFIG, normalizeLayer } from '../../types/note';
 
 interface LayerBadgeProps {
   layer: MemoryLayer;
@@ -15,7 +15,8 @@ export function LayerBadge({
   showIcon = false,
   showLevel = false,
 }: LayerBadgeProps) {
-  const config = LAYER_CONFIG[layer];
+  const normalizedLayer = normalizeLayer(layer);
+  const config = LAYER_CONFIG[normalizedLayer];
 
   // 显示内容：图标 + 标签 或 短标签
   const displayText = showLevel ? config.shortLabel : config.label;

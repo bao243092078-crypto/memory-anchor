@@ -64,37 +64,9 @@ class NotesService:
     ) -> dict:
         content = content.strip()
 
-        # 宪法层：绕过 Kernel 的红线保护，仅用于兼容/测试场景（写入 Qdrant）
+        # 宪法层：必须走三次审批流程
         if layer == MemoryLayer.CONSTITUTION:
-            note_id = uuid4()
-            created_at = datetime.now().isoformat()
-            await asyncio.to_thread(
-                self.kernel.search.index_note,
-                note_id=note_id,
-                content=content,
-                layer=layer.value,
-                category=category.value if category else None,
-                is_active=True,
-                confidence=1.0,
-                source=created_by,
-                created_by=created_by,
-                priority=priority,
-                created_at=created_at,
-                expires_at=expires_at.isoformat() if expires_at else None,
-            )
-            return {
-                "id": note_id,
-                "content": content,
-                "layer": layer.value,
-                "category": category.value if category else None,
-                "priority": priority,
-                "confidence": 1.0,
-                "source": created_by,
-                "created_by": created_by,
-                "created_at": created_at,
-                "expires_at": expires_at.isoformat() if expires_at else None,
-                "is_active": True,
-            }
+            raise ValueError("宪法层请使用 /constitution 变更流程（需三次审批）")
 
         result = await asyncio.to_thread(
             self.kernel.add_memory,
@@ -157,6 +129,13 @@ class NotesService:
         raw = await self.get(note_id)
         if not raw:
             raise KeyError("note not found")
+        raw_layer = raw.get("layer")
+        if raw_layer:
+            try:
+                if MemoryLayer.from_string(str(raw_layer)) == MemoryLayer.CONSTITUTION:
+                    raise ValueError("宪法层请使用 /constitution 变更流程（需三次审批）")
+            except ValueError:
+                pass
 
         payload = self._ensure_payload_defaults(raw)
 
@@ -192,6 +171,13 @@ class NotesService:
         raw = await self.get(note_id)
         if not raw:
             raise KeyError("note not found")
+        raw_layer = raw.get("layer")
+        if raw_layer:
+            try:
+                if MemoryLayer.from_string(str(raw_layer)) == MemoryLayer.CONSTITUTION:
+                    raise ValueError("宪法层请使用 /constitution 变更流程（需三次审批）")
+            except ValueError:
+                pass
         return await asyncio.to_thread(self.kernel.search.update_note_status, note_id, False)
 
 
@@ -204,4 +190,3 @@ def get_notes_service() -> NotesService:
     if _notes_service is None:
         _notes_service = NotesService()
     return _notes_service
-

@@ -286,7 +286,7 @@ UserWarning: The model now uses mean pooling instead of CLS embedding.
 **缓解**：
 1. 使用 systemd/launchd 自动重启 Qdrant
 2. 监控 Qdrant Server 健康状态
-3. 保持本地模式作为降级方案
+3. 本地模式仅用于测试，生产需显式配置 QDRANT_URL
 
 ### 3. SQLite 并发限制
 
@@ -483,8 +483,8 @@ uv run pytest backend/tests/test_retrieval_quality.py -v
 - ✅ Constitution 需要三次审批
 
 ### 访问控制
-- ⚠️ 当前无认证机制（内网部署）
-- 📋 TODO: 添加 API Key 认证（公网部署时）
+- ⚠️ 默认无认证机制（内网部署）
+- ✅ 支持 API Key 认证（设置 `MA_API_KEY`）
 
 ---
 

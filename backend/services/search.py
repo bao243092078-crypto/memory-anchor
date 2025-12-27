@@ -171,10 +171,12 @@ class SearchService:
         source: Optional[str] = None,
         agent_id: Optional[str] = None,
         created_at: Optional[str] = None,
+        updated_at: Optional[str] = None,
         expires_at: Optional[str] = None,
         priority: Optional[int] = None,
         created_by: Optional[str] = None,
         last_verified: Optional[str] = None,
+        metadata: Optional[dict] = None,
         # L2 情景记忆特有字段
         event_when: Optional[str] = None,
         event_where: Optional[str] = None,
@@ -217,6 +219,8 @@ class SearchService:
             payload["agent_id"] = agent_id
         if created_at is not None:
             payload["created_at"] = created_at
+        if updated_at is not None:
+            payload["updated_at"] = updated_at
         # Always add expires_at field (None = never expires)
         if expires_at is not None:
             # Convert ISO 8601 string to Unix timestamp for range queries
@@ -242,6 +246,10 @@ class SearchService:
             payload["event_where"] = event_where
         if event_who is not None:
             payload["event_who"] = event_who
+        if metadata:
+            for key, value in metadata.items():
+                if value is not None:
+                    payload.setdefault(key, value)
 
         point = PointStruct(
             id=str(note_id),
@@ -275,23 +283,58 @@ class SearchService:
         contents = [n["content"] for n in notes]
         vectors = embed_batch(contents)
 
+        payloads: list[dict] = []
+        for n in notes:
+            expires_at = n.get("expires_at")
+            if expires_at is not None:
+                try:
+                    dt = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+                    expires_value = dt.timestamp()
+                except (ValueError, AttributeError):
+                    expires_value = expires_at
+            else:
+                expires_value = None
+
+            payload = {
+                "content": n["content"],
+                "layer": n["layer"],
+                "category": n.get("category"),
+                "is_active": n.get("is_active", True),
+                "expires_at": expires_value,
+            }
+
+            if n.get("updated_at") is not None:
+                payload["updated_at"] = n["updated_at"]
+            if n.get("confidence") is not None:
+                payload["confidence"] = n["confidence"]
+            if n.get("source") is not None:
+                payload["source"] = n["source"]
+            if n.get("agent_id") is not None:
+                payload["agent_id"] = n["agent_id"]
+            if n.get("created_at") is not None:
+                payload["created_at"] = n["created_at"]
+            if n.get("created_by") is not None:
+                payload["created_by"] = n["created_by"]
+            if n.get("priority") is not None:
+                payload["priority"] = n["priority"]
+            if n.get("last_verified") is not None:
+                payload["last_verified"] = n["last_verified"]
+            if n.get("event_when") is not None:
+                payload["event_when"] = n["event_when"]
+            if n.get("event_where") is not None:
+                payload["event_where"] = n["event_where"]
+            if n.get("event_who") is not None:
+                payload["event_who"] = n["event_who"]
+
+            payloads.append(payload)
+
         points = [
             PointStruct(
                 id=str(n["id"]),
                 vector=vec,
-                payload={
-                    "content": n["content"],
-                    "layer": n["layer"],
-                    "category": n.get("category"),
-                    "is_active": n.get("is_active", True),
-                    "expires_at": n.get("expires_at"),  # Always store (None if not provided)
-                    **({"confidence": n["confidence"]} if n.get("confidence") is not None else {}),
-                    **({"source": n["source"]} if n.get("source") is not None else {}),
-                    **({"agent_id": n["agent_id"]} if n.get("agent_id") is not None else {}),
-                    **({"created_at": n["created_at"]} if n.get("created_at") is not None else {}),
-                },
+                payload=payload,
             )
-            for n, vec in zip(notes, vectors)
+            for n, vec, payload in zip(notes, vectors, payloads)
         ]
 
         self.client.upsert(
@@ -300,6 +343,30 @@ class SearchService:
         )
 
         return len(points)
+
+    def scroll(
+        self,
+        *,
+        limit: int = 100,
+        offset: Optional[object] = None,
+        with_payload: bool = True,
+        with_vectors: bool = False,
+        scroll_filter: Optional[Filter] = None,
+    ) -> tuple[list[Any], Optional[object]]:
+        """
+        滚动读取 points（用于全量导出/同步）。
+
+        Returns:
+            (points, next_offset)
+        """
+        return self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=scroll_filter,
+            limit=limit,
+            offset=offset,
+            with_payload=with_payload,
+            with_vectors=with_vectors,
+        )
 
     def search(
         self,
@@ -397,6 +464,7 @@ class SearchService:
                 "priority": payload.get("priority"),
                 "agent_id": payload.get("agent_id"),
                 "created_at": payload.get("created_at"),
+                "updated_at": payload.get("updated_at"),
                 "expires_at": payload.get("expires_at"),
                 "last_verified": payload.get("last_verified"),
                 # L2 情景记忆特有字段
@@ -482,6 +550,7 @@ class SearchService:
                 "priority": (r.payload or {}).get("priority"),
                 "agent_id": (r.payload or {}).get("agent_id"),
                 "created_at": (r.payload or {}).get("created_at"),
+                "updated_at": (r.payload or {}).get("updated_at"),
                 "expires_at": (r.payload or {}).get("expires_at"),
                 "last_verified": (r.payload or {}).get("last_verified"),
                 # L2 情景记忆特有字段
@@ -525,6 +594,7 @@ class SearchService:
             "priority": payload.get("priority"),
             "agent_id": payload.get("agent_id"),
             "created_at": payload.get("created_at"),
+            "updated_at": payload.get("updated_at"),
             "expires_at": payload.get("expires_at"),
             "last_verified": payload.get("last_verified"),
             # L2 情景记忆特有字段
@@ -553,6 +623,10 @@ class SearchService:
         if isinstance(created_at, datetime):
             created_at = created_at.isoformat()
 
+        updated_at = merged.get("updated_at")
+        if isinstance(updated_at, datetime):
+            updated_at = updated_at.isoformat()
+
         expires_at = merged.get("expires_at")
         if isinstance(expires_at, datetime):
             expires_at = expires_at.isoformat()
@@ -577,6 +651,7 @@ class SearchService:
             source=merged.get("source"),
             agent_id=merged.get("agent_id"),
             created_at=created_at,
+            updated_at=updated_at,
             expires_at=expires_at,
             priority=priority_value,
             created_by=merged.get("created_by"),

@@ -72,6 +72,7 @@ temp/
 # Qdrant local storage
 qdrant_storage/
 .qdrant/
+.qdrant_storage/
 
 # Claude Code local config
 .claude/

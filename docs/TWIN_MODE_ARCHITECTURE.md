@@ -354,7 +354,7 @@ async def test_concurrent_access():
 A: Codex 是 Python 脚本，直接函数调用比网络协议更高效。MCP 设计为 stdio 单连接，不适合多客户端。
 
 **Q: 如果 Qdrant Server 挂了怎么办？**
-A: 自动降级到本地模式（file-based），保证可用性。参考 `search.py` 的 `_get_qdrant_client()` 逻辑。
+A: 当前为 fail-fast，不会自动降级。本地模式仅用于测试，需显式配置 `QDRANT_PATH` 或通过构造参数传入 `path`。
 
 **Q: 会话层是否需要物理隔离？**
 A: 不需要。使用逻辑隔离（`agent_id` 字段过滤）即可。物理隔离（多个 collection）会增加复杂度。

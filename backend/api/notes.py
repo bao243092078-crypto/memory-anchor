@@ -181,3 +181,5 @@ async def delete_note(note_id: UUID) -> None:
         await service.delete(note_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="便利贴不存在")
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))

@@ -21,6 +21,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from io import BytesIO
 from typing import Iterator, Optional
+from uuid import UUID, uuid4
 
 from backend.config import CloudSyncConfig, load_config
 from backend.models.note import MemoryLayer
@@ -106,31 +107,42 @@ class MemoryExporter:
             MemoryRecord 对象
         """
         search_service = self._get_search_service()
+        normalized_layers: Optional[list[str]] = None
+        if layers is not None:
+            normalized_layers = []
+            for layer in layers:
+                try:
+                    normalized_layers.append(MemoryLayer.from_string(str(layer)).value)
+                except ValueError:
+                    continue
 
         # 导出所有记忆（使用空查询获取全部）
         # 分批获取以支持大量数据
         batch_size = 100
-        offset = 0
+        offset = None
 
         while True:
             # 使用 scroll API 或分页获取
-            results = search_service.scroll(
-                collection_name=search_service.collection_name,
+            records, next_offset = search_service.scroll(
                 limit=batch_size,
                 offset=offset,
                 with_payload=True,
                 with_vectors=False,
             )
 
-            if not results:
+            if not records:
                 break
 
-            for point in results:
+            for point in records:
                 payload = point.payload or {}
 
                 # 过滤层级
-                layer = payload.get("layer", "verified_fact")
-                if layers and layer not in layers:
+                raw_layer = payload.get("layer", MemoryLayer.VERIFIED_FACT.value)
+                try:
+                    layer = MemoryLayer.from_string(str(raw_layer)).value
+                except ValueError:
+                    layer = MemoryLayer.VERIFIED_FACT.value
+                if normalized_layers is not None and layer not in normalized_layers:
                     continue
 
                 yield MemoryRecord(
@@ -148,7 +160,9 @@ class MemoryExporter:
                     },
                 )
 
-            offset += batch_size
+            if next_offset is None:
+                break
+            offset = next_offset
 
     def export_to_jsonl(self, output: BytesIO, layers: Optional[list[str]] = None) -> tuple[int, str]:
         """导出到 JSONL 格式
@@ -178,20 +192,24 @@ class MemoryExporter:
         Returns:
             (JSON 内容, SHA-256 校验和)
         """
-        from backend.services.constitution import get_constitution_service
+        from backend.core.memory_kernel import get_memory_kernel
 
-        constitution_service = get_constitution_service()
-        entries = constitution_service.get_all()
+        kernel = get_memory_kernel()
+        entries = kernel.get_constitution()
 
         data = {
             "version": "1.0.0",
             "project_id": self.project_id,
             "entries": [
                 {
-                    "id": str(entry.id),
-                    "content": entry.content,
-                    "category": entry.category,
-                    "created_at": entry.created_at.isoformat() if entry.created_at else None,
+                    "id": str(entry.get("id")),
+                    "content": entry.get("content"),
+                    "category": entry.get("category"),
+                    "created_at": (
+                        entry.get("created_at").isoformat()
+                        if isinstance(entry.get("created_at"), datetime)
+                        else entry.get("created_at")
+                    ),
                 }
                 for entry in entries
             ],
@@ -213,15 +231,15 @@ class MemoryImporter:
             project_id: 项目 ID
         """
         self.project_id = project_id
-        self._memory_kernel = None
+        self._search_service = None
 
-    def _get_memory_kernel(self):
-        """延迟获取 MemoryKernel"""
-        if self._memory_kernel is None:
-            from backend.core.memory_kernel import get_memory_kernel
+    def _get_search_service(self):
+        """延迟获取 SearchService"""
+        if self._search_service is None:
+            from backend.services.search import get_search_service
 
-            self._memory_kernel = get_memory_kernel()
-        return self._memory_kernel
+            self._search_service = get_search_service()
+        return self._search_service
 
     def import_from_jsonl(
         self,
@@ -250,7 +268,7 @@ class MemoryImporter:
                     f"Checksum mismatch: expected {expected_checksum}, got {actual_checksum}"
                 )
 
-        memory_kernel = self._get_memory_kernel()
+        search_service = self._get_search_service()
 
         imported = 0
         skipped = 0
@@ -262,8 +280,28 @@ class MemoryImporter:
 
             record = MemoryRecord.from_json_line(line)
 
+            # 规范化 layer
+            if record.layer:
+                try:
+                    layer_value = MemoryLayer.from_string(record.layer).value
+                except ValueError:
+                    layer_value = MemoryLayer.VERIFIED_FACT.value
+            else:
+                layer_value = MemoryLayer.VERIFIED_FACT.value
+
+            # 规范化 ID
+            original_id = record.id
+            try:
+                note_id = UUID(str(record.id))
+                id_regenerated = False
+            except (ValueError, TypeError):
+                note_id = uuid4()
+                id_regenerated = True
+
+            metadata = record.metadata or {}
+
             # 检查是否已存在
-            existing = memory_kernel.get_by_id(record.id)
+            existing = search_service.get_note(note_id)
 
             if existing:
                 if strategy == "skip":
@@ -271,8 +309,9 @@ class MemoryImporter:
                     continue
                 elif strategy == "lww":
                     # Last-Write-Wins: 比较更新时间
-                    existing_updated = existing.get("updated_at", "")
-                    if record.updated_at <= existing_updated:
+                    existing_updated = str(existing.get("updated_at") or "")
+                    record_updated = str(record.updated_at or "")
+                    if record_updated and existing_updated and record_updated <= existing_updated:
                         skipped += 1
                         continue
                     conflicts += 1
@@ -281,18 +320,31 @@ class MemoryImporter:
                     conflicts += 1
                     continue
 
-            # 写入记忆
-            try:
-                layer = MemoryLayer(record.layer)
-            except ValueError:
-                layer = MemoryLayer.VERIFIED_FACT
+            if id_regenerated:
+                metadata["original_id"] = str(original_id)
 
-            memory_kernel.add_memory(
+            created_at = record.created_at or metadata.get("created_at")
+            updated_at = record.updated_at or metadata.get("updated_at")
+
+            search_service.index_note(
+                note_id=note_id,
                 content=record.content,
-                layer=layer,
+                layer=layer_value,
                 category=record.category,
+                is_active=metadata.get("is_active", True),
                 confidence=record.confidence,
-                note_id=record.id,  # 保留原始 ID
+                source=metadata.get("source"),
+                agent_id=metadata.get("agent_id"),
+                created_at=created_at or None,
+                updated_at=updated_at or None,
+                expires_at=metadata.get("expires_at"),
+                priority=metadata.get("priority"),
+                created_by=metadata.get("created_by"),
+                last_verified=metadata.get("last_verified"),
+                metadata=metadata,
+                event_when=metadata.get("event_when"),
+                event_where=metadata.get("event_where"),
+                event_who=metadata.get("event_who"),
             )
             imported += 1
 

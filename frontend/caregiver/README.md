@@ -2,6 +2,20 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Memory Anchor Frontend
+
+If the backend enables API key auth (`MA_API_KEY`), set the frontend key:
+
+```
+VITE_MA_API_KEY=your_api_key
+```
+
+Or store it at runtime:
+
+```
+localStorage.setItem('MA_API_KEY', 'your_api_key')
+```
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh

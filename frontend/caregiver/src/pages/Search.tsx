@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Search as SearchIcon } from 'lucide-react';
 import { useSearch } from '../hooks/useSearch';
-import type { MemoryLayer, NoteCategory } from '../types/note';
+import type { MemoryLayerV2, NoteCategory } from '../types/note';
 import type { SearchParams } from '../api/search';
-import { LAYER_CONFIG, CATEGORY_CONFIG } from '../types/note';
+import { LAYER_CONFIG, CATEGORY_CONFIG, V2_LAYERS, normalizeLayer } from '../types/note';
 import { Loading } from '../components/Common/Loading';
 import { EmptyState } from '../components/Common/EmptyState';
+import { LayerBadge } from '../components/Note/LayerBadge';
 
 export function SearchPage() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [layer, setLayer] = useState<MemoryLayer | ''>('');
+  const [layer, setLayer] = useState<MemoryLayerV2 | ''>('');
   const [category, setCategory] = useState<NoteCategory | ''>('');
 
   // 防抖处理
@@ -66,11 +67,11 @@ export function SearchPage() {
               </label>
               <select
                 value={layer}
-                onChange={(e) => setLayer(e.target.value as MemoryLayer | '')}
+                onChange={(e) => setLayer(e.target.value as MemoryLayerV2 | '')}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">全部层级</option>
-                {(Object.keys(LAYER_CONFIG) as MemoryLayer[]).map((l) => (
+                {V2_LAYERS.map((l) => (
                   <option key={l} value={l}>
                     {LAYER_CONFIG[l].label}
                   </option>
@@ -118,7 +119,7 @@ export function SearchPage() {
               <div key={result.id} className="relative bg-white rounded-lg shadow-sm border p-4">
                 <p className="text-gray-800">{result.content}</p>
                 <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-                  <span>{result.layer}</span>
+                  <LayerBadge layer={normalizeLayer(result.layer)} size="sm" />
                   {result.score !== undefined && (
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
                       相关度: {Math.round(result.score * 100)}%

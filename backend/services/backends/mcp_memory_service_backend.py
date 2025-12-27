@@ -107,7 +107,11 @@ class McpMemoryServiceBackend(AbstractMemoryBackend):
         """将 layer 和 category 转换为 tags"""
         tags = []
         if layer:
-            tags.append(f"layer:{layer}")
+            try:
+                layer_value = MemoryLayer.from_string(layer).value
+            except ValueError:
+                layer_value = str(layer)
+            tags.append(f"layer:{layer_value}")
         if category:
             tags.append(f"category:{category}")
         return tags
@@ -118,7 +122,11 @@ class McpMemoryServiceBackend(AbstractMemoryBackend):
         category = None
         for tag in tags:
             if tag.startswith("layer:"):
-                layer = tag.split(":", 1)[1]
+                raw = tag.split(":", 1)[1]
+                try:
+                    layer = MemoryLayer.from_string(raw).value
+                except ValueError:
+                    layer = raw
             elif tag.startswith("category:"):
                 category = tag.split(":", 1)[1]
         return layer, category
@@ -247,11 +255,15 @@ class McpMemoryServiceBackend(AbstractMemoryBackend):
             if mem.get("metadata", {}).get("memory_anchor_id") == str(memory_id):
                 mem_tags = mem.get("tags", [])
                 mem_layer, mem_category = self._tags_to_layer_category(mem_tags)
+                try:
+                    layer = MemoryLayer.from_string(mem_layer or "fact")
+                except ValueError:
+                    layer = MemoryLayer.FACT
 
                 return MemoryItem(
                     id=memory_id,
                     content=mem.get("content", ""),
-                    layer=MemoryLayer(mem_layer) if mem_layer else MemoryLayer.FACT,
+                    layer=layer,
                     category=MemoryCategory(mem_category) if mem_category else None,
                     confidence=mem.get("metadata", {}).get("confidence", 1.0),
                     score=1.0,

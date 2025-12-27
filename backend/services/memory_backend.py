@@ -29,9 +29,31 @@ from uuid import UUID, uuid4
 
 class MemoryLayer(str, Enum):
     """记忆层级"""
-    CONSTITUTION = "constitution"  # 宪法层：核心身份，需三次审批修改
-    FACT = "fact"                  # 事实层：长期记忆，经过验证
-    SESSION = "session"            # 会话层：短期记忆，24h内
+    # ===== 新术语 (v2.x) =====
+    IDENTITY_SCHEMA = "identity_schema"  # 宪法层：核心身份，需三次审批修改
+    ACTIVE_CONTEXT = "active_context"    # 工作记忆：会话临时状态
+    EVENT_LOG = "event_log"              # 情景记忆：事件日志
+    VERIFIED_FACT = "verified_fact"      # 事实层：长期记忆，经过验证
+    OPERATIONAL_KNOWLEDGE = "operational_knowledge"  # 技能图式
+
+    # ===== 向后兼容别名 (v1.x) =====
+    CONSTITUTION = "identity_schema"
+    FACT = "verified_fact"
+    SESSION = "event_log"
+
+    @classmethod
+    def from_string(cls, value: str) -> "MemoryLayer":
+        """兼容 v1/v2 术语映射"""
+        if not value:
+            raise ValueError("Invalid memory layer: value cannot be None or empty")
+        normalized = str(value).strip().lower()
+        aliases = {
+            "constitution": "identity_schema",
+            "fact": "verified_fact",
+            "session": "event_log",
+        }
+        normalized = aliases.get(normalized, normalized)
+        return cls(normalized)
 
 
 class MemoryCategory(str, Enum):
@@ -327,10 +349,14 @@ class AbstractMemoryBackend(ABC):
 
     def _dict_to_memory_item(self, data: dict, is_constitution: bool = False) -> MemoryItem:
         """将字典转换为 MemoryItem"""
+        try:
+            layer = MemoryLayer.from_string(data.get("layer", "fact"))
+        except ValueError:
+            layer = MemoryLayer.FACT
         return MemoryItem(
             id=UUID(data["id"]) if isinstance(data.get("id"), str) else data.get("id", uuid4()),
             content=data.get("content", ""),
-            layer=MemoryLayer(data.get("layer", "fact")),
+            layer=layer,
             category=MemoryCategory(data["category"]) if data.get("category") else None,
             confidence=data.get("confidence", 1.0),
             score=data.get("score", 1.0 if is_constitution else 0.0),

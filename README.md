@@ -264,8 +264,24 @@ cd memory-anchor
 # 安装依赖
 uv sync --all-extras
 
-# 启动 Qdrant（可选）
+# 启动 Qdrant（推荐）
+docker compose up -d qdrant
+# 若目录名包含非 ASCII，建议显式设置项目名
+docker compose -p memory-anchor up -d qdrant
+# 若未使用 docker compose，也可：
 docker run -d -p 6333:6333 --name qdrant qdrant/qdrant
+
+# 就绪检查
+curl http://localhost:6333/readyz
+
+# 连接配置
+export QDRANT_URL=http://localhost:6333
+
+# 认证与 CORS（可选）
+# 设置后 API 需要 X-API-Key 或 Bearer
+export MA_API_KEY=your_api_key
+# 逗号分隔允许来源
+export MA_CORS_ALLOW_ORIGINS=http://localhost:5173
 
 # 运行测试
 uv run pytest

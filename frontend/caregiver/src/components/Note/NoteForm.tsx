@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import type { Note, MemoryLayer, NoteCategory, CreateNoteRequest, UpdateNoteRequest } from '../../types/note';
-import { LAYER_CONFIG, CATEGORY_CONFIG } from '../../types/note';
+import type { Note, MemoryLayerV2, NoteCategory, CreateNoteRequest, UpdateNoteRequest } from '../../types/note';
+import { LAYER_CONFIG, CATEGORY_CONFIG, NOTE_CREATION_LAYERS, normalizeLayer } from '../../types/note';
 import { Button } from '../Common/Button';
 
 interface NoteFormProps {
@@ -13,7 +13,9 @@ interface NoteFormProps {
 
 export function NoteForm({ note, onSubmit, onCancel, loading }: NoteFormProps) {
   const [content, setContent] = useState(note?.content || '');
-  const [layer, setLayer] = useState<MemoryLayer>(note?.layer || 'fact');
+  const [layer, setLayer] = useState<MemoryLayerV2>(
+    normalizeLayer(note?.layer || 'verified_fact')
+  );
   const [category, setCategory] = useState<NoteCategory | ''>(note?.category || '');
   const [priority, setPriority] = useState(note?.priority ?? 50);
 
@@ -63,7 +65,7 @@ export function NoteForm({ note, onSubmit, onCancel, loading }: NoteFormProps) {
           记忆层级 {isEdit && <span className="text-xs text-gray-500">(创建后不可修改)</span>}
         </label>
         <div className="flex gap-2">
-          {(Object.keys(LAYER_CONFIG) as MemoryLayer[]).map((l) => (
+          {NOTE_CREATION_LAYERS.map((l) => (
             <button
               key={l}
               type="button"
@@ -73,11 +75,11 @@ export function NoteForm({ note, onSubmit, onCancel, loading }: NoteFormProps) {
                   ? `${LAYER_CONFIG[l].bgColor} ${LAYER_CONFIG[l].color} ring-2 ring-offset-1`
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
-              disabled={isEdit || (l === 'constitution' && !isEdit)}
+              disabled={isEdit || (l === 'identity_schema' && !isEdit)}
               title={
                 isEdit
                   ? '编辑模式不支持修改层级'
-                  : l === 'constitution'
+                  : l === 'identity_schema'
                     ? '核心身份需通过审批流程添加'
                     : undefined
               }
@@ -86,7 +88,7 @@ export function NoteForm({ note, onSubmit, onCancel, loading }: NoteFormProps) {
             </button>
           ))}
         </div>
-        {layer === 'constitution' && !isEdit && (
+        {layer === 'identity_schema' && !isEdit && (
           <p className="mt-1 text-xs text-gray-500">
             核心身份需要通过「核心身份」页面提议并审批
           </p>

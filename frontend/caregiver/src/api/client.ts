@@ -9,6 +9,24 @@ export const apiClient = axios.create({
   },
 });
 
+const getApiKey = (): string | null => {
+  const envKey = import.meta.env.VITE_MA_API_KEY;
+  if (envKey) {
+    return envKey;
+  }
+  return localStorage.getItem('MA_API_KEY');
+};
+
+// Request interceptor - inject API key if available
+apiClient.interceptors.request.use((config) => {
+  const apiKey = getApiKey();
+  if (apiKey) {
+    config.headers = config.headers ?? {};
+    config.headers['X-API-Key'] = apiKey;
+  }
+  return config;
+});
+
 // 响应拦截器 - 统一错误处理
 apiClient.interceptors.response.use(
   (response) => response,

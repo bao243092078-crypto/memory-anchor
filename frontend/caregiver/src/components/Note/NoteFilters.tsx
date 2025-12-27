@@ -1,5 +1,5 @@
-import type { MemoryLayer, NoteCategory, NotesQueryParams } from '../../types/note';
-import { LAYER_CONFIG, CATEGORY_CONFIG } from '../../types/note';
+import type { NoteCategory, NotesQueryParams } from '../../types/note';
+import { LAYER_CONFIG, CATEGORY_CONFIG, V2_LAYERS, normalizeLayer } from '../../types/note';
 
 interface NoteFiltersProps {
   filters: NotesQueryParams;
@@ -7,6 +7,8 @@ interface NoteFiltersProps {
 }
 
 export function NoteFilters({ filters, onChange }: NoteFiltersProps) {
+  const selectedLayer = filters.layer ? normalizeLayer(filters.layer) : '';
+
   return (
     <div className="flex flex-wrap gap-4">
       {/* 层级过滤 */}
@@ -15,17 +17,17 @@ export function NoteFilters({ filters, onChange }: NoteFiltersProps) {
           层级
         </label>
         <select
-          value={filters.layer || ''}
+          value={selectedLayer}
           onChange={(e) =>
             onChange({
               ...filters,
-              layer: e.target.value as MemoryLayer | undefined || undefined,
+              layer: (e.target.value || undefined) as NotesQueryParams['layer'],
             })
           }
           className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">全部层级</option>
-          {(Object.keys(LAYER_CONFIG) as MemoryLayer[]).map((l) => (
+          {V2_LAYERS.map((l) => (
             <option key={l} value={l}>
               {LAYER_CONFIG[l].label}
             </option>

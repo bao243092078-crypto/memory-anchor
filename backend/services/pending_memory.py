@@ -15,13 +15,9 @@ from uuid import UUID
 
 from backend.config import get_config
 
-# 数据库路径
-DB_PATH = get_config().sqlite_path
-
-
 def _get_db_path() -> Path:
-    """获取数据库路径（可在测试中通过 monkeypatch 覆盖）"""
-    return DB_PATH
+    """获取数据库路径（可在测试中通过 monkeypatch get_config 覆盖）"""
+    return get_config().sqlite_path
 
 
 def _init_db():
@@ -65,6 +61,7 @@ class PendingMemoryService:
 
     def _get_conn(self) -> sqlite3.Connection:
         """获取数据库连接"""
+        _init_db()
         conn = sqlite3.connect(str(_get_db_path()))
         conn.row_factory = sqlite3.Row
         return conn

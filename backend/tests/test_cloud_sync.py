@@ -10,6 +10,7 @@ Tests for Cloud Sync functionality.
 import json
 import os
 import tempfile
+from uuid import uuid4
 from dataclasses import asdict
 from io import BytesIO
 from pathlib import Path
@@ -345,6 +346,18 @@ class TestCloudSyncService:
 class TestMemoryImporter:
     """测试 MemoryImporter"""
 
+    class DummySearchService:
+        def __init__(self, existing=None):
+            self.existing = existing or {}
+            self.index_calls = []
+
+        def get_note(self, note_id):
+            return self.existing.get(str(note_id))
+
+        def index_note(self, **kwargs):
+            self.index_calls.append(kwargs)
+            return True
+
     def test_verify_integrity(self):
         """测试完整性验证"""
         import hashlib
@@ -358,6 +371,80 @@ class TestMemoryImporter:
 
         assert importer.verify_integrity(data, expected_checksum) is True
         assert importer.verify_integrity(data, "wrong_checksum") is False
+
+    def test_import_lww_skips_older(self, monkeypatch):
+        """测试 LWW：旧数据被跳过"""
+        from backend.services.cloud_sync import MemoryImporter
+
+        note_id = uuid4()
+        dummy = self.DummySearchService(
+            existing={str(note_id): {"updated_at": "2024-02-01T00:00:00"}}
+        )
+        importer = MemoryImporter("test-project")
+        monkeypatch.setattr(importer, "_get_search_service", lambda: dummy)
+
+        record = {
+            "id": str(note_id),
+            "content": "old",
+            "layer": "fact",
+            "updated_at": "2024-01-01T00:00:00",
+        }
+        data = (json.dumps(record) + "\n").encode("utf-8")
+
+        imported, skipped, conflicts = importer.import_from_jsonl(data, strategy="lww")
+
+        assert imported == 0
+        assert skipped == 1
+        assert conflicts == 0
+        assert dummy.index_calls == []
+
+    def test_import_lww_handles_missing_updated_at(self, monkeypatch):
+        """测试 LWW：缺失更新时间不应报错"""
+        from backend.services.cloud_sync import MemoryImporter
+
+        note_id = uuid4()
+        dummy = self.DummySearchService(
+            existing={str(note_id): {"updated_at": "2024-02-01T00:00:00"}}
+        )
+        importer = MemoryImporter("test-project")
+        monkeypatch.setattr(importer, "_get_search_service", lambda: dummy)
+
+        record = {
+            "id": str(note_id),
+            "content": "newer-without-updated",
+            "layer": "fact",
+        }
+        data = (json.dumps(record) + "\n").encode("utf-8")
+
+        imported, skipped, conflicts = importer.import_from_jsonl(data, strategy="lww")
+
+        assert imported == 1
+        assert skipped == 0
+        assert conflicts == 1
+        assert len(dummy.index_calls) == 1
+
+    def test_import_preserves_original_id_on_invalid_uuid(self, monkeypatch):
+        """测试非法 ID 时写入 original_id"""
+        from backend.services.cloud_sync import MemoryImporter
+
+        dummy = self.DummySearchService()
+        importer = MemoryImporter("test-project")
+        monkeypatch.setattr(importer, "_get_search_service", lambda: dummy)
+
+        record = {
+            "id": "not-a-uuid",
+            "content": "content",
+            "layer": "fact",
+            "metadata": {},
+        }
+        data = (json.dumps(record) + "\n").encode("utf-8")
+
+        imported, skipped, conflicts = importer.import_from_jsonl(data, strategy="lww")
+
+        assert imported == 1
+        assert skipped == 0
+        assert conflicts == 0
+        assert dummy.index_calls[0]["metadata"]["original_id"] == "not-a-uuid"
 
 
 __all__ = [
