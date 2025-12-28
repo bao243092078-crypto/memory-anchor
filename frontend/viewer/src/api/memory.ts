@@ -1,4 +1,4 @@
-import type { Memory, SearchRequest, MemoryLayer, NoteCategory, ProjectListResponse } from '../types';
+import type { Memory, SearchRequest, MemoryLayer, NoteCategory, ProjectListResponse, GraphData, GraphFilter } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -171,6 +171,53 @@ export async function getCurrentProject(): Promise<{
 
   if (!response.ok) {
     throw new Error(`Get current project failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Get memory graph data for visualization
+ */
+export async function getGraphData(filter?: GraphFilter): Promise<GraphData> {
+  const searchParams = new URLSearchParams();
+
+  if (filter?.layers) {
+    filter.layers.forEach(layer => searchParams.append('layers', layer));
+  }
+  if (filter?.categories) {
+    filter.categories.forEach(cat => searchParams.append('categories', cat));
+  }
+  if (filter?.start_time) searchParams.set('start_time', filter.start_time);
+  if (filter?.end_time) searchParams.set('end_time', filter.end_time);
+  if (filter?.limit) searchParams.set('limit', filter.limit.toString());
+  if (filter?.edge_types) {
+    filter.edge_types.forEach(et => searchParams.append('edge_types', et));
+  }
+
+  const url = `${API_BASE}/graph${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Get graph data failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Get graph statistics
+ */
+export async function getGraphStats(): Promise<{
+  total_nodes: number;
+  total_edges: number;
+  layer_stats: Record<string, number>;
+  category_stats: Record<string, number>;
+}> {
+  const response = await fetch(`${API_BASE}/graph/stats`);
+
+  if (!response.ok) {
+    throw new Error(`Get graph stats failed: ${response.statusText}`);
   }
 
   return response.json();

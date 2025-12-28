@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { ProjectSelector } from './ProjectSelector';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
-export type ViewType = 'search' | 'timeline';
+export type ViewType = 'search' | 'timeline' | 'graph';
 
 interface HeaderProps {
   memoryCount: number;
@@ -97,6 +97,27 @@ export function Header({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
               {t('header.timelineTab')}
+            </button>
+            <button
+              onClick={() => onViewChange('graph')}
+              className={`
+                flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium
+                transition-all duration-200
+                ${currentView === 'graph'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+                }
+              `}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3" />
+                <circle cx="19" cy="5" r="2" />
+                <circle cx="5" cy="5" r="2" />
+                <circle cx="5" cy="19" r="2" />
+                <circle cx="19" cy="19" r="2" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9V6M12 15v3M9 12H6M15 12h3M10 10L7 7M14 14l3 3M10 14l-3 3M14 10l3-3" />
+              </svg>
+              {t('header.graphTab', '图谱')}
             </button>
           </div>
 

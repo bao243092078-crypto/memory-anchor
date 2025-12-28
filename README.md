@@ -4,8 +4,8 @@
 
 ### AI 的外挂海马体 | The External Hippocampus for AI
 
-[![Version](https://img.shields.io/badge/version-2.0.1-blue?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor/releases)
-[![Tests](https://img.shields.io/badge/tests-483%20passed-success?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor/releases)
+[![Tests](https://img.shields.io/badge/tests-498%20passed-success?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor)
 [![Python](https://img.shields.io/badge/python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-14%20tools-8B5CF6?style=for-the-badge)](https://modelcontextprotocol.io/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
@@ -205,7 +205,8 @@ SessionStart ──► PreToolUse ──► PostToolUse ──► PreCompact ─
 | 📂 **分类筛选** | 人物/地点/事件/物品/习惯 |
 | ✅ **批量操作** | 多选删除/验证 |
 | 📊 **时间线** | Recharts 堆叠面积图 |
-| 🌐 **多语言** | 中英文切换（143 keys）|
+| 🕸️ **记忆图谱** | D3.js 力导向图（节点点击/缩放/筛选）|
+| 🌐 **多语言** | 中英文切换（160+ keys）|
 | 📁 **多项目** | ProjectSelector 隔离 |
 
 ### 启动
@@ -236,7 +237,8 @@ npm install && npm run dev
 **前端**
 - React 18 + TypeScript
 - Vite + Tailwind CSS
-- Recharts（可视化）
+- D3.js（记忆图谱）
+- Recharts（时间线）
 - i18next（国际化）
 
 </td>
@@ -258,13 +260,21 @@ npm install && npm run dev
 
 ## 🗺️ 路线图
 
-### v2.0.1 ✅ 最新
+### v2.1.0 ✅ 最新
+
+- [x] 记忆图谱可视化（D3.js 力导向图）
+- [x] 节点交互：点击详情、缩放、拖拽、平移
+- [x] 图谱筛选：按层级/分类过滤
+- [x] Graph API：`/api/v1/graph` 端点
+- [x] 15 个新测试，498 个测试全部通过
+
+### v2.0.1 ✅
 
 - [x] 测试隔离修复：SearchService `path` 优先于 `url`
 - [x] 修复 8 个测试文件的隔离问题
 - [x] 483 个测试全部通过
 
-### v2.0.0 ✅ 完成
+### v2.0.0 ✅
 
 - [x] 五层认知记忆模型（L0-L4）
 - [x] 14 个 MCP 工具
@@ -277,7 +287,6 @@ npm install && npm run dev
 
 - [ ] VSCode / Cursor 插件
 - [ ] 团队协作（多用户）
-- [ ] 记忆图谱可视化
 - [ ] 移动端 PWA
 
 ---

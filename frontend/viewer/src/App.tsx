@@ -7,6 +7,7 @@ import { useMemoryActions } from './hooks/useMemoryActions';
 import { useSelection } from './hooks/useSelection';
 import { useProject } from './hooks/useProject';
 import { TimelinePage } from './pages/TimelinePage';
+import { GraphPage } from './pages/GraphPage';
 import type { Memory, MemoryLayer, NoteCategory } from './types';
 
 function App() {
@@ -215,6 +216,8 @@ function App() {
       <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
         {currentView === 'timeline' ? (
           <TimelinePage />
+        ) : currentView === 'graph' ? (
+          <GraphPage />
         ) : (
           <div className="flex gap-8">
             {/* Left sidebar - Filters */}

@@ -11,7 +11,9 @@
     "all": "All",
     "edit": "Edit",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "refresh": "Refresh",
+    "retry": "Retry"
   },
   "header": {
     "title": "Memory Anchor",
@@ -19,7 +21,8 @@
     "memoryCount": "Memories",
     "builtBy": "Built by Claude",
     "searchTab": "Search",
-    "timelineTab": "Timeline"
+    "timelineTab": "Timeline",
+    "graphTab": "Graph"
   },
   "project": {
     "switchProject": "Switch Project",
@@ -162,6 +165,24 @@
       "months": "months"
     },
     "noData": "No data"
+  },
+  "graph": {
+    "title": "Memory Graph",
+    "subtitle": "Visualize memory relationships",
+    "maxNodes": "Max Nodes",
+    "nodes": "Nodes",
+    "edges": "Edges",
+    "nodeDetail": "Memory Details",
+    "confidence": "Confidence",
+    "createdAt": "Created At",
+    "dragHint": "Drag nodes to move",
+    "scrollHint": "Scroll to zoom, drag to pan",
+    "clickHint": "Click node for details",
+    "timeSequence": "Time Sequence",
+    "sharedCategory": "Shared Category",
+    "noData": "No memory data",
+    "refresh": "Refresh",
+    "retry": "Retry"
   },
   "dialog": {
     "deleteTitle": "Delete Memory",
