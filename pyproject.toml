@@ -1,6 +1,6 @@
 [project]
 name = "memory-anchor"
-version = "0.1.0"
+version = "1.0.0"
 description = "Memory Anchor - AI 记忆系统，为 AI 提供持久化跨会话记忆"
 readme = "README.md"
 license = { text = "MIT" }

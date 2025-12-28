@@ -1,9 +1,11 @@
 # Memory Anchor 🧠⚓
 
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/bao243092078-crypto/memory-anchor)
 [![Tests](https://img.shields.io/badge/tests-469%20passed-brightgreen)](https://github.com/bao243092078-crypto/memory-anchor)
 [![Python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-14%20tools-purple)](https://modelcontextprotocol.io/)
+[![Status](https://img.shields.io/badge/status-complete-success)](https://github.com/bao243092078-crypto/memory-anchor)
 
 > **为什么叫"阿默斯海默症"？**
 >
