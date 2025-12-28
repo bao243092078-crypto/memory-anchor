@@ -4,8 +4,8 @@
 
 ### AI 的外挂海马体 | The External Hippocampus for AI
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor/releases)
-[![Tests](https://img.shields.io/badge/tests-469%20passed-success?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor)
+[![Version](https://img.shields.io/badge/version-2.0.1-blue?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor/releases)
+[![Tests](https://img.shields.io/badge/tests-483%20passed-success?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor)
 [![Python](https://img.shields.io/badge/python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-14%20tools-8B5CF6?style=for-the-badge)](https://modelcontextprotocol.io/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
@@ -257,6 +257,12 @@ npm install && npm run dev
 ---
 
 ## 🗺️ 路线图
+
+### v2.0.1 ✅ 最新
+
+- [x] 测试隔离修复：SearchService `path` 优先于 `url`
+- [x] 修复 8 个测试文件的隔离问题
+- [x] 483 个测试全部通过
 
 ### v2.0.0 ✅ 完成
 
