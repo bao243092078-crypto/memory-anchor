@@ -1,12 +1,20 @@
 # 当前计划
 
-> 最后更新：2025-12-26
+> 最后更新：2025-12-28
 
 ## 正在做
 
 （无当前任务）
 
 ## 已完成
+
+- [x] Memory Viewer Web UI 功能扩展（2025-12-28）
+  - [x] 时间线可视化 Phase 1（Recharts 堆叠面积图）
+  - [x] 时间线可视化 Phase 2（时间范围筛选 + 粒度切换）
+  - [x] 批量操作（multi-select delete/verify）
+  - [x] 多项目隔离（ProjectSelector 组件）
+  - [x] i18n 国际化（中英文切换，143 个翻译键）
+  - [x] 提交 8eff2e5, 1c01042, db1062f
 
 - [x] Cloud Sync 云端同步（2025-12-26）
   - [x] CloudStorageBackend Protocol（S3/R2/MinIO）
