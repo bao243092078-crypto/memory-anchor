@@ -19,16 +19,19 @@ class TestConcurrentApproval:
     """测试并发批准场景"""
 
     @pytest.fixture(autouse=True)
-    def setup_test_db(self, tmp_path, monkeypatch):
-        """为每个测试设置独立的临时 SQLite 数据库"""
+    def setup_test_db(self, tmp_path, monkeypatch, request):
+        """为每个测试设置独立的临时 SQLite 数据库和 Qdrant collection"""
         test_db = tmp_path / "test_concurrent.db"
-        monkeypatch.setattr(pending_memory, "DB_PATH", test_db)
 
         # 重置配置
         reset_config()
 
-        # 设置测试环境变量
-        monkeypatch.setenv("MEMORY_ANCHOR_COLLECTION", "memory_anchor_test_notes")
+        # 每个测试使用唯一的 collection name 确保隔离
+        unique_collection = f"test_concurrent_{request.node.name}"
+        monkeypatch.setenv("MEMORY_ANCHOR_COLLECTION", unique_collection)
+
+        # monkeypatch _get_db_path 函数返回测试数据库路径
+        monkeypatch.setattr(pending_memory, "_get_db_path", lambda: test_db)
 
         yield
 

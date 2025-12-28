@@ -106,23 +106,23 @@ class SearchService:
         self.collection_name = self._config.collection_name
         self.vector_size = self._config.vector_size
 
-        # 确定使用的 URL
+        # 确定使用的 URL（path 参数优先，用于测试隔离）
         actual_url = url or self._config.qdrant_url
 
         try:
-            if actual_url:
-                # Server 模式（生产环境标准）
-                self.client = QdrantClient(url=actual_url)
-                self.mode = "server"
-                logger.info(f"Connected to Qdrant Server: {actual_url}")
-            elif path:
-                # Local 模式（仅用于测试）
+            if path:
+                # Local 模式（path 参数显式优先，用于测试）
                 logger.warning(
                     "Using Qdrant local mode. This is for testing only. "
                     "Production should set QDRANT_URL."
                 )
                 self.client = QdrantClient(path=path)
                 self.mode = "local"
+            elif actual_url:
+                # Server 模式（生产环境标准）
+                self.client = QdrantClient(url=actual_url)
+                self.mode = "server"
+                logger.info(f"Connected to Qdrant Server: {actual_url}")
             else:
                 # 未配置 - 失败
                 raise ValueError(

@@ -17,9 +17,19 @@ from backend.services.search import SearchService
 class TestTTLExpiration:
     """测试 TTL 过期过滤"""
 
+    @pytest.fixture(autouse=True)
+    def setup_unique_collection(self, monkeypatch, request):
+        """为每个测试设置唯一的 Qdrant collection 确保隔离"""
+        from backend.config import reset_config
+        unique_collection = f"test_ttl_{request.node.name}"
+        monkeypatch.setenv("MEMORY_ANCHOR_COLLECTION", unique_collection)
+        reset_config()  # 确保配置重新加载
+        yield
+        reset_config()
+
     @pytest.fixture
-    def search_service(self, tmp_path):
-        """创建测试用的 SearchService"""
+    def search_service(self, tmp_path, setup_unique_collection):
+        """创建测试用的 SearchService（依赖 setup_unique_collection 确保顺序）"""
         return SearchService(path=str(tmp_path / ".qdrant"))
 
     def test_expired_memories_filtered_from_search(self, search_service):

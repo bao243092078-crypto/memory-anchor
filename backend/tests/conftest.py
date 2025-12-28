@@ -63,12 +63,16 @@ def configure_test_qdrant(test_qdrant_path, monkeypatch):
     # Clear QDRANT_URL at test level (double insurance)
     monkeypatch.delenv("QDRANT_URL", raising=False)
 
+    # Reset config first to ensure clean state
+    from backend.config import reset_config
+    reset_config()
+
     from backend.services import search as search_module
 
     # Store original SearchService class
     OriginalSearchService = search_module.SearchService
 
-    # Create wrapper that injects path parameter
+    # Create wrapper that injects path parameter when none provided
     class TestSearchService(OriginalSearchService):
         def __init__(self, path=None, url=None, prefer_server=True):
             # If no path or url provided, use test path for local mode
@@ -78,10 +82,6 @@ def configure_test_qdrant(test_qdrant_path, monkeypatch):
 
     # Monkeypatch the SearchService class
     monkeypatch.setattr(search_module, "SearchService", TestSearchService)
-
-    # Also reset config to ensure clean state
-    from backend.config import reset_config
-    reset_config()
 
     yield
 

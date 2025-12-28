@@ -16,6 +16,13 @@ from backend.services.search import SearchService
 class TestSessionIsolation:
     """测试会话隔离"""
 
+    @pytest.fixture(autouse=True)
+    def setup_unique_collection(self, monkeypatch, request):
+        """为每个测试设置唯一的 Qdrant collection 确保隔离"""
+        unique_collection = f"test_session_{request.node.name}"
+        monkeypatch.setenv("MEMORY_ANCHOR_COLLECTION", unique_collection)
+        yield
+
     @pytest.fixture
     def search_service(self, tmp_path):
         """创建测试用的 SearchService"""

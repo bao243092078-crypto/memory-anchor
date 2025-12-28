@@ -21,10 +21,11 @@ async def async_client(monkeypatch, tmp_path):
     monkeypatch.setattr(search_module, "embed_batch", fake_embed_batch)
 
     # Isolate Qdrant (in-memory) and constitution DB.
+    test_db = tmp_path / "constitution_changes.db"
     monkeypatch.setattr(
         constitution_module,
-        "DB_PATH",
-        tmp_path / "constitution_changes.db",
+        "_get_db_path",
+        lambda: test_db,
     )
     search_instance = search_module.SearchService(path=":memory:")
     monkeypatch.setattr(search_module, "_search_service", search_instance, raising=False)

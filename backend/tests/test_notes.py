@@ -41,8 +41,8 @@ class TestNotesAPI:
         assert data["layer"] == "verified_fact"  # v2.0 新术语（原 fact）
         assert data["is_active"] is True
 
-    def test_create_constitution_note(self):
-        """创建宪法层便利贴"""
+    def test_create_constitution_note_requires_approval_flow(self):
+        """宪法层便利贴需要通过审批流程创建（直接创建应返回 400）"""
         response = client.post(
             "/api/v1/notes",
             json={
@@ -51,9 +51,10 @@ class TestNotesAPI:
                 "priority": 0,
             },
         )
-        assert response.status_code == 201
+        # 宪法层需要三次审批，不允许直接创建
+        assert response.status_code == 400
         data = response.json()
-        assert data["layer"] == "identity_schema"  # v2.0 新术语（原 constitution）
+        assert "宪法层请使用 /constitution 变更流程" in data["detail"]
 
     def test_list_notes(self):
         """获取便利贴列表"""
