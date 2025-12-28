@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Header, SearchBar, FilterPanel, MemoryList, ConfirmDialog, MemoryDetail } from './components';
 import type { ViewType } from './components/Header';
 import { useMemories } from './hooks/useMemories';
@@ -9,6 +10,7 @@ import { TimelinePage } from './pages/TimelinePage';
 import type { Memory, MemoryLayer, NoteCategory } from './types';
 
 function App() {
+  const { t } = useTranslation();
   const [currentView, setCurrentView] = useState<ViewType>('search');
   const [selectedLayer, setSelectedLayer] = useState<MemoryLayer | null>(null);
 
@@ -264,10 +266,10 @@ function App() {
       {/* Delete confirmation dialog */}
       <ConfirmDialog
         isOpen={deleteDialogOpen}
-        title="删除记忆"
-        message="确定要删除这条记忆吗？此操作无法撤销。"
-        confirmText="删除"
-        cancelText="取消"
+        title={t('dialog.deleteTitle')}
+        message={t('dialog.deleteMessage')}
+        confirmText={t('common.delete')}
+        cancelText={t('common.cancel')}
         confirmVariant="danger"
         loading={deleting}
         onConfirm={handleDeleteConfirm}
@@ -277,10 +279,10 @@ function App() {
       {/* Batch delete confirmation dialog */}
       <ConfirmDialog
         isOpen={batchDeleteDialogOpen}
-        title="批量删除"
-        message={`确定要删除选中的 ${selectedCount} 条记忆吗？此操作无法撤销。`}
-        confirmText={`删除 ${selectedCount} 条`}
-        cancelText="取消"
+        title={t('batch.deleteConfirmTitle')}
+        message={t('batch.deleteConfirmMessage', { count: selectedCount })}
+        confirmText={t('batch.deleteButton', { count: selectedCount })}
+        cancelText={t('common.cancel')}
         confirmVariant="danger"
         loading={batchOperating}
         onConfirm={handleBatchDeleteConfirm}
