@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -16,14 +17,19 @@ export function ConfirmDialog({
   isOpen,
   title,
   message,
-  confirmText = '确认',
-  cancelText = '取消',
+  confirmText,
+  cancelText,
   confirmVariant = 'danger',
   loading = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Use translated defaults if not provided
+  const finalConfirmText = confirmText ?? t('common.confirm');
+  const finalCancelText = cancelText ?? t('common.cancel');
 
   // Handle ESC key
   useEffect(() => {
@@ -106,7 +112,7 @@ export function ConfirmDialog({
               onClick={onCancel}
               disabled={loading}
             >
-              {cancelText}
+              {finalCancelText}
             </button>
             <button
               type="button"
@@ -135,7 +141,7 @@ export function ConfirmDialog({
                   />
                 </svg>
               )}
-              {confirmText}
+              {finalConfirmText}
             </button>
           </div>
         </div>

@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface JsonViewerProps {
   data: unknown;
 }
 
 export function JsonViewer({ data }: JsonViewerProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const jsonString = JSON.stringify(data, null, 2);
@@ -25,7 +27,7 @@ export function JsonViewer({ data }: JsonViewerProps) {
       <button
         onClick={handleCopy}
         className="absolute top-2 right-2 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors z-10"
-        title="复制 JSON"
+        title={t('json.copy')}
       >
         {copied ? (
           <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">

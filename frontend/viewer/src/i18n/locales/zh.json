@@ -174,5 +174,8 @@
     "day": "天",
     "week": "周",
     "month": "月"
+  },
+  "json": {
+    "copy": "复制 JSON"
   }
 }

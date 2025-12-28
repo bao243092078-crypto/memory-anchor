@@ -8,14 +8,23 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { TimelineData, TIMELINE_COLORS, TIMELINE_LABELS } from '../../hooks/useTimelineData';
+import { useTranslation } from 'react-i18next';
+import { TimelineData, TIMELINE_COLORS } from '../../hooks/useTimelineData';
 
 interface TimelineChartProps {
   data: TimelineData[];
 }
 
+// Layer key to i18n key mapping
+const LAYER_I18N_KEYS: Record<string, string> = {
+  L0: 'layer.identity_schema',
+  L2: 'layer.event_log',
+  L3: 'layer.verified_fact',
+  L4: 'layer.operational_knowledge',
+};
+
 // Custom tooltip component
-const CustomTooltip = ({
+function CustomTooltip({
   active,
   payload,
   label,
@@ -23,7 +32,9 @@ const CustomTooltip = ({
   active?: boolean;
   payload?: Array<{ name: string; value: number; color: string }>;
   label?: string;
-}) => {
+}) {
+  const { t } = useTranslation();
+
   if (!active || !payload || payload.length === 0) {
     return null;
   }
@@ -42,7 +53,7 @@ const CustomTooltip = ({
                 style={{ backgroundColor: item.color }}
               />
               <span className="text-gray-600">
-                {TIMELINE_LABELS[item.name as keyof typeof TIMELINE_LABELS]}
+                {t(LAYER_I18N_KEYS[item.name] || item.name)}
               </span>
             </div>
             <span className="font-medium text-gray-900">{item.value}</span>
@@ -50,34 +61,40 @@ const CustomTooltip = ({
         ))}
       </div>
       <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-sm">
-        <span className="text-gray-600">总计</span>
+        <span className="text-gray-600">{t('timeline.stats.totalMemories')}</span>
         <span className="font-semibold text-gray-900">{total}</span>
       </div>
     </div>
   );
-};
+}
 
 
 // Custom legend component
-const CustomLegend = () => (
-  <div className="flex justify-center gap-6 mt-4">
-    {Object.entries(TIMELINE_LABELS).map(([key, label]) => (
-      <div key={key} className="flex items-center gap-2">
-        <div
-          className="w-3 h-3 rounded-full"
-          style={{ backgroundColor: TIMELINE_COLORS[key as keyof typeof TIMELINE_COLORS] }}
-        />
-        <span className="text-sm text-gray-600">{label}</span>
-      </div>
-    ))}
-  </div>
-);
+function CustomLegend() {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex justify-center gap-6 mt-4">
+      {Object.entries(LAYER_I18N_KEYS).map(([key, i18nKey]) => (
+        <div key={key} className="flex items-center gap-2">
+          <div
+            className="w-3 h-3 rounded-full"
+            style={{ backgroundColor: TIMELINE_COLORS[key as keyof typeof TIMELINE_COLORS] }}
+          />
+          <span className="text-sm text-gray-600">{t(i18nKey)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function TimelineChart({ data }: TimelineChartProps) {
+  const { t } = useTranslation();
+
   if (data.length === 0) {
     return (
       <div className="h-[400px] flex items-center justify-center text-gray-500">
-        暂无数据
+        {t('timeline.noData')}
       </div>
     );
   }
