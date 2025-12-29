@@ -77,3 +77,50 @@ export const PROJECT_TYPE_CONFIG: Record<string, { label: string; emoji: string 
   'patient-care': { label: '患者护理', emoji: '💊' },
   'knowledge-base': { label: '知识库', emoji: '📚' },
 };
+
+// Graph types for memory visualization
+export type EdgeType = 'time_sequence' | 'shared_category' | 'shared_layer' | 'semantic_similar';
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  layer: string;
+  category?: string;
+  created_at: string;
+  color: string;
+  size: number;
+  content: string;
+  confidence: number;
+  // D3 simulation properties
+  x?: number;
+  y?: number;
+  fx?: number | null;
+  fy?: number | null;
+}
+
+export interface GraphEdge {
+  source: string | GraphNode;
+  target: string | GraphNode;
+  edge_type: EdgeType;
+  weight: number;
+  color: string;
+  dashed: boolean;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  node_count: number;
+  edge_count: number;
+  layer_stats: Record<string, number>;
+  category_stats: Record<string, number>;
+}
+
+export interface GraphFilter {
+  layers?: string[];
+  categories?: string[];
+  start_time?: string;
+  end_time?: string;
+  limit?: number;
+  edge_types?: EdgeType[];
+}

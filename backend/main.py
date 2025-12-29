@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.auth import verify_api_key
 from backend.api.constitution import router as constitution_router
+from backend.api.graph import router as graph_router
 from backend.api.memory import router as memory_router
 from backend.api.notes import router as notes_router
 from backend.api.pending import router as pending_router
@@ -60,6 +61,7 @@ app.include_router(memory_router, dependencies=api_dependencies)  # memory 路�
 app.include_router(constitution_router, prefix="/api/v1", dependencies=api_dependencies)  # 宪法层变更路由
 app.include_router(pending_router, dependencies=api_dependencies)  # pending 路由已有 /api/v1/pending 前缀
 app.include_router(projects_router, dependencies=api_dependencies)  # projects 路由已有 /api/v1/projects 前缀
+app.include_router(graph_router, prefix="/api/v1", dependencies=api_dependencies)  # 图谱可视化路由
 
 
 @app.get("/")

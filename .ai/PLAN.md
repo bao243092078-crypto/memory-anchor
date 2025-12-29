@@ -4,9 +4,16 @@
 
 ## 正在做
 
-（无当前任务）
+（无）
 
 ## 已完成
+
+- [x] 记忆图谱可视化（Memory Graph）（2025-12-28）
+  - [x] Phase 1: 后端 API（GraphNode/GraphEdge 模型，`/api/v1/graph` 端点）
+  - [x] Phase 2: 前端 D3.js（力导向图，节点按 layer 分色）
+  - [x] Phase 3: 交互功能（节点点击/缩放/拖拽/筛选）
+  - [x] Phase 4: 测试（15 个新测试，498 个测试全部通过）
+  - [x] 更新 README 和版本号（v2.1.0）
 
 - [x] Memory Viewer Web UI 功能扩展（2025-12-28）
   - [x] 时间线可视化 Phase 1（Recharts 堆叠面积图）
