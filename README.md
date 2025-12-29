@@ -68,6 +68,20 @@ pip install memory-anchor
 }
 ```
 
+### Qdrant（一次性固定，避免数据“丢失”）
+
+- Qdrant 存储固定在 `~/.qdrant_storage`（Docker 默认挂载），数据不随项目移动
+- 只用 Docker 或只用本地 Qdrant，不要混用（避免两个实例读写同一份存储）
+- Server 模式请设置：`QDRANT_URL=http://127.0.0.1:6333`
+- 路径含非 ASCII 时，使用 `-p memory-anchor` 或设置 `COMPOSE_PROJECT_NAME=memory-anchor`
+- 建议固定 `QDRANT_URL` 与 `MCP_MEMORY_PROJECT_ID`，避免写入/查询错项目
+
+```bash
+docker compose -p memory-anchor up -d qdrant
+export QDRANT_URL=http://127.0.0.1:6333
+curl http://127.0.0.1:6333/readyz
+```
+
 ### 云端同步（可选）
 
 ```bash
