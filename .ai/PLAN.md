@@ -1,19 +1,24 @@
 # 当前计划
 
 > 最后更新：2025-12-31
-> 版本目标：v3.0 - 认知增强版
+> 当前版本：v3.0.0 ✅ 已发布
 
 ---
 
 ## 🎯 Sprint 目标
 
-**Memory Anchor v3.0**：基于四方 AI 头脑风暴结论，引入上下文预算管理、安全过滤、时间感知和冲突检测，同时保持"我妈能用"的极简理念。
+**v3.0.0 已发布** - 认知增强版完成，包含：ContextBudgetManager、SafetyFilter、Bi-temporal、ConflictDetector。
+
+**下一步方向**（待定）：
+- 前端 Bi-temporal UI
+- VSCode / Cursor 插件
+- 开源社区运营
 
 ---
 
 ## 正在做
 
-（无）
+（无 - v3.0 已发布）
 
 ---
 
@@ -151,16 +156,18 @@
 
 ---
 
-### Phase 6: 发布准备
+### Phase 6: 发布准备 ✅ 完成
 
 > ⏱️ 预计：1 天
 
-- [ ] **P6-1** 更新 `pyproject.toml` 版本号 → `3.0.0`
-- [ ] **P6-2** 更新 `CHANGELOG.md`
-- [ ] **P6-3** 更新 `README.md` 新功能说明
-- [ ] **P6-4** 创建 PR，请求 Code Review
-- [ ] **P6-5** 合并到 main，打 tag `v3.0.0`
-- [ ] **P6-6** 写入 Memory Anchor：`add_memory("v3.0.0 发布...")`
+- [x] **P6-1** 更新 `pyproject.toml` 版本号 → `3.0.0`
+- [x] **P6-2** 更新 `CHANGELOG.md`
+- [x] **P6-3** 更新 `README.md` 新功能说明
+- [x] **P6-4** 创建 PR #2
+- [x] **P6-5** 合并到 main，打 tag `v3.0.0`
+- [x] **P6-6** 写入 Memory Anchor
+
+✅ **v3.0.0 发布完成**：2025-12-31
 
 ---
 
@@ -181,10 +188,10 @@
 
 | 日期 | 目标 | 状态 |
 |------|------|------|
-| 2025-12-30 | Phase 1-2 完成（P0 优先级） | ✅ 提前完成 |
-| 2025-12-31 | Phase 3 完成（Bi-temporal 后端） | ✅ 提前完成 |
-| 2025-12-31 | Phase 4 完成（ConflictDetector） | ✅ 大幅提前完成 |
-| 2025-01-20 | v3.0.0 发布 | ⬜ |
+| 2025-12-30 | Phase 1-2 完成（P0 优先级） | ✅ 完成 |
+| 2025-12-31 | Phase 3 完成（Bi-temporal 后端） | ✅ 完成 |
+| 2025-12-31 | Phase 4 完成（ConflictDetector） | ✅ 完成 |
+| 2025-12-31 | v3.0.0 发布 | ✅ 完成 |
 
 ---
 
@@ -192,7 +199,7 @@
 
 - [MemoryAgentBench Paper](https://arxiv.org/abs/2507.05257) - 冲突检测基准
 - [Zep Temporal KG Paper](https://arxiv.org/abs/2501.13956) - Bi-temporal 架构
-- [四方 AI 头脑风暴结果](待写入 Memory Anchor) - 2025-12-30
+- 四方 AI 头脑风暴结果 - 2025-12-30（已记录在 Memory Anchor）
 
 ---
 

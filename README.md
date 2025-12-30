@@ -14,6 +14,14 @@
 
 [快速开始](#-快速开始) · [功能特性](#-功能特性) · [架构设计](#-架构设计) · [Web UI](#-web-ui) · [文档](docs/)
 
+---
+
+### 🎯 v3.0 亮点
+
+| 🛡️ 安全过滤 | ⏰ 时间感知 | ⚔️ 冲突检测 | 📊 预算管理 |
+|:---:|:---:|:---:|:---:|
+| PII 自动脱敏 | Bi-temporal 查询 | 规则引擎检测 | Token 配额控制 |
+
 </div>
 
 ---
@@ -291,19 +299,20 @@ npm install && npm run dev
 
 ## 🗺️ 路线图
 
-### v2.1.0 ✅ 最新
+### v3.0.0 ✅ 最新 - 认知增强版
+
+- [x] **ContextBudgetManager** - Token 预算管理，防止上下文爆炸
+- [x] **SafetyFilter** - PII 检测 + 敏感词过滤（block/redact/warn）
+- [x] **Bi-temporal 时间感知** - `valid_at`/`expires_at` 时间维度查询
+- [x] **ConflictDetector MVP** - 规则引擎冲突检测（时间/来源/置信度）
+- [x] 621 个测试通过
+
+### v2.1.0 ✅
 
 - [x] 记忆图谱可视化（D3.js 力导向图）
 - [x] 节点交互：点击详情、缩放、拖拽、平移
-- [x] 图谱筛选：按层级/分类过滤
 - [x] Graph API：`/api/v1/graph` 端点
-- [x] 15 个新测试，498 个测试全部通过
-
-### v2.0.1 ✅
-
-- [x] 测试隔离修复：SearchService `path` 优先于 `url`
-- [x] 修复 8 个测试文件的隔离问题
-- [x] 483 个测试全部通过
+- [x] 498 个测试通过
 
 ### v2.0.0 ✅
 
@@ -312,7 +321,6 @@ npm install && npm run dev
 - [x] Hook 系统（8 个 Phase）
 - [x] 云端同步（S3/R2/MinIO + AES-256-GCM）
 - [x] Web UI（搜索/筛选/时间线/批量/i18n）
-- [x] 469 个测试通过
 
 ### 未来方向 🔮
 
