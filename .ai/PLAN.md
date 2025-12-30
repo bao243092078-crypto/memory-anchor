@@ -1,6 +1,6 @@
 # 当前计划
 
-> 最后更新：2025-12-30
+> 最后更新：2025-12-31
 > 版本目标：v3.0 - 认知增强版
 
 ---
@@ -78,37 +78,38 @@
 
 ---
 
-### Phase 3: Bi-temporal 时间感知（P1 优先级）
+### Phase 3: Bi-temporal 时间感知（P1 优先级） ✅ 完成
 
 > ⏱️ 预计：3-5 天 | ⏰ 时间维度增强
 
 **3.1 数据模型升级（1 天）**
-- [ ] **P3-1** 扩展 `Note` 模型，添加 3 个时间戳：
+- [x] **P3-1** 扩展 `Note` 模型，添加 3 个时间戳：
   ```python
   created_at: datetime      # 创建时间（已有）
   valid_at: datetime | None # 生效时间（新增）
-  expired_at: datetime | None  # 失效时间（新增）
+  expires_at: datetime | None  # 失效时间（新增）
   ```
-- [ ] **P3-2** 更新 Qdrant payload schema
-- [ ] **P3-3** 编写数据迁移脚本（现有数据 `valid_at = created_at`）
+- [x] **P3-2** 更新 Qdrant payload schema
+- [x] **P3-3** 向后兼容设计（valid_at=None 表示立即生效，无需数据迁移）
 
 **3.2 查询增强（1 天）**
-- [ ] **P3-4** 实现 `TemporalQuery` 类：
+- [x] **P3-4** 实现 `TemporalQuery` 类（backend/core/temporal_query.py）：
   - `at_time(t)` - 查询某时刻有效的记忆
   - `in_range(start, end)` - 查询时间范围内的记忆
   - `only_valid()` - 只返回未过期的记忆
-- [ ] **P3-5** 更新 `search_memory` MCP 工具，添加 `as_of` 参数
-- [ ] **P3-6** 更新 `search_events` MCP 工具，支持时间范围
+  - `no_filter()` - 返回所有记忆（含已过期）
+- [x] **P3-5** 更新 `search_memory` MCP 工具，添加 `as_of/start_time/end_time/include_expired` 参数
+- [x] **P3-6** 更新 `search_events` MCP 工具，支持时间范围
 
-**3.3 UI 更新（0.5 天）**
+**3.3 UI 更新（0.5 天）** ⏸️ 后续
 - [ ] **P3-7** 前端 NoteCard 显示有效期状态
 - [ ] **P3-8** 时间线视图支持 Bi-temporal 筛选
 
 **3.4 测试（0.5 天）**
-- [ ] **P3-9** 编写 20+ 测试用例（时间查询、过期、迁移）
-- [ ] **P3-10** 运行全量测试确保无回归
+- [x] **P3-9** 编写 33 测试用例（时间查询、解析、条件生成、边界情况）
+- [x] **P3-10** 运行全量测试（595 个通过，无回归）
 
-🔴 **暂停点**：测试全绿后，提交 commit + 更新 CHANGELOG
+✅ **暂停点通过**：2025-12-31 (后端 Bi-temporal 完成，前端 UI 后续迭代)
 
 ---
 
@@ -196,7 +197,7 @@
 | 日期 | 目标 | 状态 |
 |------|------|------|
 | 2025-12-30 | Phase 1-2 完成（P0 优先级） | ✅ 提前完成 |
-| 2025-01-10 | Phase 3 完成（Bi-temporal） | ⬜ |
+| 2025-12-31 | Phase 3 完成（Bi-temporal 后端） | ✅ 提前完成 |
 | 2025-01-15 | Phase 4 完成（ConflictDetector） | ⬜ |
 | 2025-01-20 | v3.0.0 发布 | ⬜ |
 

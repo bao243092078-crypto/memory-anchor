@@ -59,6 +59,11 @@ class MemorySearchRequest(BaseModel):
     include_constitution: bool = True  # 是否始终包含宪法层
     limit: int = Field(default=5, ge=1, le=20)
     min_score: float = Field(default=0.3, ge=0.0, le=1.0)
+    # Bi-temporal 时间查询 (v3.0 新增)
+    as_of: Optional[str] = Field(default=None, description="时间点查询 (ISO 8601)")
+    start_time: Optional[str] = Field(default=None, description="范围查询开始时间")
+    end_time: Optional[str] = Field(default=None, description="范围查询结束时间")
+    include_expired: bool = Field(default=False, description="是否包含已过期记忆")
 
     @field_validator("layer", mode="before")
     @classmethod
@@ -211,6 +216,11 @@ class MemoryService:
         - Layer 0: 宪法层始终预加载（不检索）
         - Layer 1-3: 语义检索 + 关键词混合
 
+        Bi-temporal 查询 (v3.0)：
+        - as_of: 查询某时刻有效的记忆
+        - start_time/end_time: 查询时间范围内的记忆
+        - include_expired: 是否包含已过期记忆
+
         Returns:
             MemoryResult 列表
         """
@@ -222,6 +232,11 @@ class MemoryService:
             limit=request.limit,
             min_score=request.min_score,
             include_constitution=request.include_constitution,
+            # Bi-temporal 时间查询 (v3.0 新增)
+            as_of=request.as_of,
+            start_time=request.start_time,
+            end_time=request.end_time,
+            include_expired=request.include_expired,
         )
 
         return [self._dict_to_memory_result(r) for r in raw_results]

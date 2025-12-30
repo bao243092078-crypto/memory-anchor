@@ -130,6 +130,11 @@ class MemoryKernel:
         min_score: float = 0.3,
         include_constitution: bool = True,
         agent_id: Optional[str] = None,
+        # Bi-temporal 时间查询 (v3.0 新增)
+        as_of: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        include_expired: bool = False,
     ) -> List[Dict[str, Any]]:
         """
         语义搜索记忆
@@ -142,6 +147,10 @@ class MemoryKernel:
             min_score: 最小相关度分数
             include_constitution: 是否包含宪法层（始终显示）
             agent_id: Agent ID（用于会话层隔离）
+            as_of: Bi-temporal 时间点查询（ISO 8601 格式）
+            start_time: Bi-temporal 范围查询开始时间（ISO 8601 格式）
+            end_time: Bi-temporal 范围查询结束时间（ISO 8601 格式）
+            include_expired: 是否包含已过期记忆
 
         Returns:
             记忆结果列表，每项包含：
@@ -151,6 +160,8 @@ class MemoryKernel:
             - category: 分类
             - score: 相关度分数
             - is_constitution: 是否为宪法层
+            - valid_at: 生效时间（v3.0）
+            - expires_at: 失效时间
         """
         # 规范化层级名称（支持 v1.x 旧术语）
         layer = normalize_layer(layer)
@@ -167,12 +178,21 @@ class MemoryKernel:
         # 1) 搜索事实层/会话层
         search_results: list[dict] = []
 
+        # 构建时间查询参数（v3.0 Bi-temporal）
+        temporal_kwargs = {
+            "as_of": as_of,
+            "start_time": start_time,
+            "end_time": end_time,
+            "include_expired": include_expired,
+        }
+
         if layer == MemoryLayer.FACT.value:
             search_results = self.search.search(
                 query=query,
                 limit=limit,
                 layer=MemoryLayer.FACT.value,
                 category=category,
+                **temporal_kwargs,
             )
         elif layer == MemoryLayer.SESSION.value:
             search_results = self.search.search(
@@ -181,6 +201,7 @@ class MemoryKernel:
                 layer=MemoryLayer.SESSION.value,
                 category=category,
                 agent_id=agent_id,
+                **temporal_kwargs,
             )
         else:
             # 未指定层级：事实层共享 + 会话层按 agent_id 隔离
@@ -190,6 +211,7 @@ class MemoryKernel:
                     limit=limit,
                     layer=MemoryLayer.FACT.value,
                     category=category,
+                    **temporal_kwargs,
                 )
             )
             search_results.extend(
@@ -199,6 +221,7 @@ class MemoryKernel:
                     layer=MemoryLayer.SESSION.value,
                     category=category,
                     agent_id=agent_id,
+                    **temporal_kwargs,
                 )
             )
 
@@ -221,6 +244,8 @@ class MemoryKernel:
                 "source": r.get("source"),
                 "agent_id": r.get("agent_id"),
                 "created_at": r.get("created_at"),
+                # Bi-temporal 时间戳 (v3.0 新增)
+                "valid_at": r.get("valid_at"),
                 "expires_at": r.get("expires_at"),
                 "is_constitution": False,
                 # L2 情景记忆特有字段
@@ -267,6 +292,8 @@ class MemoryKernel:
         confidence: float = 1.0,
         priority: Optional[int] = None,
         created_by: Optional[str] = None,
+        # Bi-temporal 时间戳 (v3.0 新增)
+        valid_at: Optional[datetime] = None,
         expires_at: Optional[datetime] = None,
         requires_approval: bool = False,
         agent_id: Optional[str] = None,
@@ -294,7 +321,8 @@ class MemoryKernel:
             confidence: 置信度（0-1）
             priority: 优先级（可选，0=最高）
             created_by: 创建者标识（可选，默认等于 source）
-            expires_at: 过期时间（可选）
+            valid_at: 生效时间（v3.0，默认=创建时间）
+            expires_at: 失效时间（可选）
             requires_approval: 是否需要审批（仅对非 AI 写入生效）
             agent_id: Agent ID（会话层需要）
             event_when: L2 情景记忆 - 事件时间（ISO 时间字符串）
@@ -372,6 +400,8 @@ class MemoryKernel:
                 source=source,
                 agent_id=agent_id if layer == MemoryLayer.EVENT_LOG.value else None,
                 created_at=created_at,
+                # Bi-temporal 时间戳 (v3.0 新增)
+                valid_at=valid_at.isoformat() if valid_at else None,
                 expires_at=expires_at.isoformat() if expires_at else None,
                 priority=priority,
                 created_by=created_by_value,
@@ -406,6 +436,9 @@ class MemoryKernel:
             "confidence": confidence,
             "requires_approval": needs_approval,
             "created_at": created_at,
+            # Bi-temporal 时间戳 (v3.0 新增)
+            "valid_at": valid_at.isoformat() if valid_at else created_at,
+            "expires_at": expires_at.isoformat() if expires_at else None,
             "priority": priority,
             "created_by": created_by_value,
             # 可追溯性字段

@@ -102,7 +102,11 @@ async def list_tools() -> list[Tool]:
 - "女儿电话" → 返回联系人信息
 - "search_memory Bug" → 返回相关 Bug 修复记录
 - "Qdrant 决策" → 返回技术选型原因
-- "上次讨论的架构" → 返回设计决策""",
+- "上次讨论的架构" → 返回设计决策
+
+Bi-temporal 查询（v3.0）：
+- 使用 as_of 查询某时刻有效的记忆
+- 使用 start_time/end_time 查询时间范围内的记忆""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -133,6 +137,27 @@ async def list_tools() -> list[Tool]:
                         "minimum": 1,
                         "maximum": 20,
                         "description": "返回数量限制",
+                    },
+                    # Bi-temporal 时间查询 (v3.0 新增)
+                    "as_of": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Bi-temporal 时间点查询（ISO 8601 格式）。返回该时刻有效的记忆（valid_at <= as_of AND (expires_at > as_of OR expires_at IS NULL)）",
+                    },
+                    "start_time": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Bi-temporal 范围查询开始时间（ISO 8601 格式）",
+                    },
+                    "end_time": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Bi-temporal 范围查询结束时间（ISO 8601 格式）",
+                    },
+                    "include_expired": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "是否包含已过期记忆（默认 False）",
                     },
                 },
                 "required": ["query"],
@@ -807,6 +832,11 @@ async def _handle_search_memory(
     layer = arguments.get("layer")
     category = arguments.get("category")
     limit = arguments.get("limit", 5)
+    # Bi-temporal 时间查询 (v3.0 新增)
+    as_of = arguments.get("as_of")
+    start_time = arguments.get("start_time")
+    end_time = arguments.get("end_time")
+    include_expired = arguments.get("include_expired", False)
 
     request = MemorySearchRequest(
         query=query,
@@ -815,6 +845,11 @@ async def _handle_search_memory(
         include_constitution=True,
         limit=limit,
         min_score=0.3,
+        # Bi-temporal 时间查询 (v3.0 新增)
+        as_of=as_of,
+        start_time=start_time,
+        end_time=end_time,
+        include_expired=include_expired,
     )
 
     results = await service.search_memory(request)
