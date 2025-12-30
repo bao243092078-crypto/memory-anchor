@@ -99,16 +99,18 @@ class MemoryKernel:
     - 线程安全（通过 Qdrant Server 模式）
     """
 
-    def __init__(self, search_service, note_repo=None):
+    def __init__(self, search_service, note_repo=None, budget_manager=None):
         """
         初始化记忆核心
 
         Args:
             search_service: 搜索服务实例（SearchService）
             note_repo: Note 仓库（可选，用于元数据存储）
+            budget_manager: 上下文预算管理器（可选，v3.0 新增）
         """
         self.search = search_service
         self.notes = note_repo
+        self._budget_manager = budget_manager
 
     def search_memory(
         self,
@@ -225,6 +227,25 @@ class MemoryKernel:
         constitution_results = [r for r in results if r["is_constitution"]]
         other_results = [r for r in results if not r["is_constitution"]]
         other_results.sort(key=lambda x: x["score"], reverse=True)
+
+        # 3. 应用预算截断（v3.0 新增）
+        if self._budget_manager:
+            # 宪法层预算
+            if constitution_results:
+                constitution_results, _ = self._budget_manager.truncate_to_fit(
+                    constitution_results,
+                    "identity_schema",
+                    preserve_first=len(constitution_results),  # 宪法层始终保留
+                )
+            # 其他层按 layer 分组截断
+            fact_results = [r for r in other_results if r.get("layer") == "verified_fact"]
+            event_results = [r for r in other_results if r.get("layer") == "event_log"]
+            if fact_results:
+                fact_results, _ = self._budget_manager.truncate_to_fit(fact_results, "verified_fact")
+            if event_results:
+                event_results, _ = self._budget_manager.truncate_to_fit(event_results, "event_log")
+            other_results = fact_results + event_results
+            other_results.sort(key=lambda x: x.get("score", 0), reverse=True)
 
         return constitution_results + other_results[:limit]
 
@@ -476,6 +497,22 @@ class MemoryKernel:
         """
         result = self.search.get_stats()
         return dict(result)
+
+    def get_budget_report(self) -> Optional[Dict[str, Any]]:
+        """
+        获取上下文预算使用报告（v3.0 新增）
+
+        Returns:
+            预算报告字典，如果未启用预算管理则返回 None
+        """
+        if self._budget_manager:
+            return self._budget_manager.get_report().to_dict()
+        return None
+
+    def reset_budget(self) -> None:
+        """重置预算计数器（用于新会话）"""
+        if self._budget_manager:
+            self._budget_manager.reset()
 
     # ===== L1: Active Context (工作记忆) =====
 
