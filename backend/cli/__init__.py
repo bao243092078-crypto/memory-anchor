@@ -12,12 +12,14 @@ Memory Anchor CLI - 命令行工具
 - memory-anchor cloud: 云端同步命令（init/push/pull/status）
 - memory-anchor web: 启动 Memory Viewer Web 界面
 - memory-anchor budget: 查看上下文预算使用情况（v3.0）
+- memory-anchor conflicts: 扫描记忆冲突（v3.0）
 """
 
 import typer
 
 from backend.cli.budget_cmd import budget_command
 from backend.cli.cloud_cmd import cloud_app
+from backend.cli.conflicts_cmd import conflicts_command
 from backend.cli.doctor_cmd import doctor_command
 from backend.cli.drift_cmd import drift_check_command
 from backend.cli.init_cmd import init_command
@@ -44,6 +46,7 @@ app.command(name="drift-check", help="检查当前工作与北极星的偏离度
 app.command(name="review", help="多视角代码审查（Security/Performance/Quality/Memory）")(review_command)
 app.command(name="web", help="启动 Memory Viewer Web 界面")(web_command)
 app.command(name="budget", help="查看上下文预算使用情况（v3.0）")(budget_command)
+app.command(name="conflicts", help="扫描项目记忆中的潜在冲突（v3.0）")(conflicts_command)
 app.add_typer(cloud_app, name="cloud", help="云端同步命令（push/pull/status）")
 
 

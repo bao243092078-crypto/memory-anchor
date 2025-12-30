@@ -32,6 +32,19 @@ from backend.core.safety_filter import FilterAction, SafetyFilter, get_safety_fi
 from backend.models.note import MemoryLayer, NoteCategory
 from backend.services.pending_memory import PendingMemoryService
 
+# v3.0: 冲突检测
+# 延迟导入避免循环依赖，在需要时导入
+_conflict_detector_class = None
+
+
+def _get_conflict_detector_class():
+    """延迟导入 ConflictDetector 类"""
+    global _conflict_detector_class
+    if _conflict_detector_class is None:
+        from backend.core.conflict_detector import ConflictDetector
+        _conflict_detector_class = ConflictDetector
+    return _conflict_detector_class
+
 
 class MemorySource(str, Enum):
     """记忆来源"""
@@ -106,6 +119,8 @@ class MemoryKernel:
         note_repo=None,
         budget_manager=None,
         safety_filter: Optional[SafetyFilter] = None,
+        conflict_detector=None,
+        enable_conflict_detection: bool = True,
     ):
         """
         初始化记忆核心
@@ -115,11 +130,24 @@ class MemoryKernel:
             note_repo: Note 仓库（可选，用于元数据存储）
             budget_manager: 上下文预算管理器（可选，v3.0 新增）
             safety_filter: 安全过滤器（可选，v3.0 新增）
+            conflict_detector: 冲突检测器（可选，v3.0 新增）
+            enable_conflict_detection: 是否启用冲突检测（默认 True）
         """
         self.search = search_service
         self.notes = note_repo
         self._budget_manager = budget_manager
         self._safety_filter = safety_filter
+        self._conflict_detector = conflict_detector
+        self._enable_conflict_detection = enable_conflict_detection
+
+        # 如果未提供冲突检测器但启用了检测，自动创建
+        if self._conflict_detector is None and self._enable_conflict_detection:
+            try:
+                ConflictDetector = _get_conflict_detector_class()
+                self._conflict_detector = ConflictDetector(search_service)
+            except Exception:
+                # 冲突检测是可选功能，初始化失败不应阻止使用
+                self._conflict_detector = None
 
     def search_memory(
         self,
@@ -354,6 +382,25 @@ class MemoryKernel:
             if filter_result.is_modified:
                 content = filter_result.filtered_content
 
+        # ⚔️ 冲突检测（v3.0 新增）
+        conflict_warning = None
+        if self._conflict_detector:
+            try:
+                conflict_result = self._conflict_detector.detect(
+                    content=content,
+                    layer=layer,
+                    project_id=get_config().project_id,
+                    confidence=confidence,
+                    created_by=created_by or source,
+                    valid_at=valid_at,
+                )
+                if conflict_result.has_conflict:
+                    # 不阻止写入，只是记录警告
+                    conflict_warning = conflict_result.to_dict()
+            except Exception:
+                # 冲突检测失败不应阻止写入
+                pass
+
         # 🔴 红线：宪法层保护
         if layer == MemoryLayer.IDENTITY_SCHEMA.value:
             if source != "caregiver":
@@ -429,7 +476,7 @@ class MemoryKernel:
                 created_by=created_by_value,
             )
 
-        return {
+        result = {
             "id": note_id,
             "status": status,
             "layer": layer,
@@ -445,6 +492,12 @@ class MemoryKernel:
             "session_id": session_id,
             "related_files": related_files,
         }
+
+        # 添加冲突警告（v3.0 新增）
+        if conflict_warning:
+            result["conflict_warning"] = conflict_warning
+
+        return result
 
     def get_constitution(self) -> List[Dict[str, Any]]:
         """

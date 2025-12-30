@@ -113,36 +113,28 @@
 
 ---
 
-### Phase 4: ConflictDetector MVP（P2 优先级）
+### Phase 4: ConflictDetector MVP（P2 优先级） ✅ 完成
 
 > ⏱️ 预计：3-4 天 | ⚔️ 冲突检测
 
 **4.1 规则引擎（1.5 天）**
-- [ ] **P4-1** 创建 `backend/core/conflict_detector.py` 模块
-- [ ] **P4-2** 实现基于规则的冲突检测：
-  - 时间冲突：同一实体的新旧记录
-  - 来源冲突：不同来源的矛盾信息
-  - 置信度比较：低置信度 vs 高置信度
-- [ ] **P4-3** 定义 `ConflictResult` 数据类：
-  ```python
-  @dataclass
-  class ConflictResult:
-      has_conflict: bool
-      conflict_type: str  # temporal | source | confidence
-      conflicting_memories: list[UUID]
-      resolution_hint: str
-  ```
+- [x] **P4-1** 创建 `backend/core/conflict_detector.py` 模块
+- [x] **P4-2** 实现基于规则的冲突检测（规则引擎，不用 LLM）：
+  - temporal: 时间冲突（同一实体的新旧记录，valid_at 重叠）
+  - source: 来源冲突（created_by 不同但内容相似）
+  - confidence: 置信度冲突（差异 > 0.3）
+- [x] **P4-3** 定义 `ConflictResult` 数据类 + `ConflictDetectorConfig`
 
 **4.2 集成（1 天）**
-- [ ] **P4-4** 在 `add_memory()` 前调用冲突检测
-- [ ] **P4-5** 冲突时返回警告（不阻止写入，仅提示）
-- [ ] **P4-6** 添加 CLI 命令 `./ma conflicts --project NAME`
+- [x] **P4-4** 在 `add_memory()` 前调用冲突检测（自动初始化）
+- [x] **P4-5** 冲突时返回 `conflict_warning`（不阻止写入，仅提示）
+- [x] **P4-6** 添加 CLI 命令 `./ma conflicts --project NAME --verbose`
 
 **4.3 测试（0.5 天）**
-- [ ] **P4-7** 编写 15+ 测试用例（各类冲突场景）
-- [ ] **P4-8** 运行全量测试确保无回归
+- [x] **P4-7** 编写 26 测试用例（时间/来源/置信度冲突，阈值，严重程度）
+- [x] **P4-8** 运行全量测试（621 个通过，无回归）
 
-🔴 **暂停点**：测试全绿后，提交 commit
+✅ **暂停点通过**：2025-12-31
 
 ---
 
@@ -198,7 +190,7 @@
 |------|------|------|
 | 2025-12-30 | Phase 1-2 完成（P0 优先级） | ✅ 提前完成 |
 | 2025-12-31 | Phase 3 完成（Bi-temporal 后端） | ✅ 提前完成 |
-| 2025-01-15 | Phase 4 完成（ConflictDetector） | ⬜ |
+| 2025-12-31 | Phase 4 完成（ConflictDetector） | ✅ 大幅提前完成 |
 | 2025-01-20 | v3.0.0 发布 | ⬜ |
 
 ---
