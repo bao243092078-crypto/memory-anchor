@@ -138,23 +138,16 @@
 
 ---
 
-### Phase 5: Tool Memory L4b（P3 优先级，可选）
+### Phase 5: Tool Memory L4b（P3 优先级，可选） ⏭️ 跳过
 
 > ⏱️ 预计：5+ 天 | 🔧 工具调用记忆（默认关闭）
 
-**5.1 评估（1 天）**
-- [ ] **P5-1** 分析 MemOS Tool Memory 的实际价值
-- [ ] **P5-2** 评估与现有 `.ai/operations/` SOP 的重叠
-- [ ] **P5-3** 决定是否继续（⚠️ 可能跳过）
+**决定**: 跳过此 Phase，原因：
+- 现有 `.ai/operations/` SOP 已覆盖 L4 操作性知识
+- Tool Memory 与现有方案功能重叠
+- v3.0 核心功能（Budget/Safety/Temporal/Conflict）已完成
 
-**5.2 实现（如果继续）**
-- [ ] **P5-4** 创建 `backend/core/tool_memory.py` 模块
-- [ ] **P5-5** 实现工具调用轨迹记录
-- [ ] **P5-6** 添加配置项 `MA_TOOL_MEMORY_ENABLED=false`（默认关闭）
-
-**5.3 测试**
-- [ ] **P5-7** 编写测试用例
-- [ ] **P5-8** 运行全量测试确保无回归
+如需实现，可在后续版本中添加。
 
 ---
 

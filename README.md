@@ -4,8 +4,8 @@
 
 ### AI 的外挂海马体 | The External Hippocampus for AI
 
-[![Version](https://img.shields.io/badge/version-2.1.0-blue?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor/releases)
-[![Tests](https://img.shields.io/badge/tests-498%20passed-success?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor/releases)
+[![Tests](https://img.shields.io/badge/tests-621%20passed-success?style=for-the-badge)](https://github.com/bao243092078-crypto/memory-anchor)
 [![Python](https://img.shields.io/badge/python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-14%20tools-8B5CF6?style=for-the-badge)](https://modelcontextprotocol.io/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
@@ -170,6 +170,23 @@ curl http://127.0.0.1:6333/readyz
 ---
 
 ## ✨ 功能特性
+
+### v3.0 认知增强（新）
+
+| 功能 | 说明 | CLI 命令 |
+|------|------|----------|
+| **ContextBudgetManager** | Token 预算管理，防止上下文爆炸 | `./ma budget` |
+| **SafetyFilter** | PII 检测 + 敏感词过滤 | 自动启用 |
+| **Bi-temporal 时间感知** | `valid_at`/`expires_at` 时间维度查询 | MCP: `as_of` 参数 |
+| **ConflictDetector** | 规则引擎冲突检测（时间/来源/置信度） | `./ma conflicts` |
+
+```python
+# Bi-temporal 查询示例
+search_memory(query="患者用药", as_of="2025-01-01T00:00:00Z")
+
+# 冲突检测自动返回警告
+add_memory("新记忆") → {"conflict_warning": {...}}
+```
 
 ### Hook 系统（8 个 Phase）
 
