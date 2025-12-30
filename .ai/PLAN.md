@@ -19,75 +19,62 @@
 
 ## 📋 v3.0 清单（按优先级）
 
-### Phase 0: 前置检查（开始前必做）
+### Phase 0: 前置检查（开始前必做） ✅ 完成
 
 > ⏱️ 预计：0.5 天 | 🔴 暂停点
 
-- [ ] **P0-1** 确认 Qdrant Server 运行正常（`curl http://127.0.0.1:6333/collections`）
-- [ ] **P0-2** 确认测试全部通过（`uv run pytest` - 当前 498 个）
-- [ ] **P0-3** 创建 `feature/v3.0-cognitive-enhancement` 分支
-- [ ] **P0-4** 备份现有数据（`./ma cloud push --encrypt`）
+- [x] **P0-1** 确认 Qdrant Server 运行正常（36 collections）
+- [x] **P0-2** 确认测试全部通过（498 个）
+- [x] **P0-3** 创建 `feature/v3.0-cognitive-enhancement` 分支
+- [x] **P0-4** 创建 Qdrant 快照备份
 
-🔴 **暂停点**：以上全部 ✅ 后再继续
+✅ **暂停点通过**：2025-12-30
 
 ---
 
-### Phase 1: ContextBudgetManager（P0 优先级）
+### Phase 1: ContextBudgetManager（P0 优先级） ✅ 完成
 
 > ⏱️ 预计：2-3 天 | 🎯 防止上下文爆炸
 
 **1.1 设计（0.5 天）**
-- [ ] **P1-1** 创建 `backend/core/context_budget.py` 模块
-- [ ] **P1-2** 定义 `ContextBudget` 数据类：
-  ```python
-  @dataclass
-  class ContextBudget:
-      l0_identity: int = 500      # 宪法层上限
-      l2_events: int = 500        # 事件层上限
-      l3_facts: int = 2000        # 事实层上限
-      total_limit: int = 4000     # 总上限
-  ```
-- [ ] **P1-3** 设计 token 计算策略（tiktoken 或字符估算）
+- [x] **P1-1** 创建 `backend/core/context_budget.py` 模块
+- [x] **P1-2** 定义 `ContextBudget` 数据类（L0:500, L1:200, L2:500, L3:2000, L4:300）
+- [x] **P1-3** 设计 token 计算策略（4字符≈1 token 简化估算）
 
 **1.2 实现（1 天）**
-- [ ] **P1-4** 实现 `ContextBudgetManager` 类：
-  - `allocate(layer, content) -> bool` - 检查是否超限
-  - `get_usage() -> dict` - 返回各层使用情况
-  - `truncate_to_fit(memories, limit) -> list` - 按重要性截断
-- [ ] **P1-5** 集成到 `MemoryKernel.search()` 方法
-- [ ] **P1-6** 添加 CLI 命令 `./ma budget --project NAME`
+- [x] **P1-4** 实现 `ContextBudgetManager` 类
+- [x] **P1-5** 集成到 `MemoryKernel.search()` 方法
+- [x] **P1-6** 添加 CLI 命令 `./ma budget`
 
 **1.3 测试（0.5 天）**
-- [ ] **P1-7** 编写 15+ 测试用例（边界值、超限、截断）
-- [ ] **P1-8** 运行全量测试确保无回归
+- [x] **P1-7** 编写 32 测试用例
+- [x] **P1-8** 运行全量测试（530 个通过）
 
-🔴 **暂停点**：测试全绿后，提交 commit
+✅ **暂停点通过**：2025-12-30 (commit: 3cbd7c1)
 
 ---
 
-### Phase 2: SafetyFilter（P0 优先级）
+### Phase 2: SafetyFilter（P0 优先级） ✅ 完成
 
 > ⏱️ 预计：1 天 | 🛡️ Anthropic 安全对齐
 
 **2.1 设计（0.25 天）**
-- [ ] **P2-1** 创建 `backend/core/safety_filter.py` 模块
-- [ ] **P2-2** 定义过滤规则：
+- [x] **P2-1** 创建 `backend/core/safety_filter.py` 模块
+- [x] **P2-2** 定义过滤规则：
+  - PII 检测（邮箱、电话、身份证、信用卡、IP、API密钥）
   - 敏感词检测（可配置词表）
-  - PII 检测（邮箱、电话、身份证）
-  - 长度限制（单条记忆 ≤ 2000 字符）
+  - 长度限制（默认 ≤ 2000 字符）
 
 **2.2 实现（0.5 天）**
-- [ ] **P2-3** 实现 `SafetyFilter` 类：
-  - `filter(content) -> FilterResult` - 返回过滤结果
-  - `sanitize(content) -> str` - 脱敏处理
-- [ ] **P2-4** 集成到 `add_memory()` 入口
-- [ ] **P2-5** 添加配置项 `MA_SAFETY_FILTER_ENABLED=true`
+- [x] **P2-3** 实现 `SafetyFilter` 类（check/redact/is_safe）
+- [x] **P2-4** 集成到 `MemoryKernel.add_memory()` 入口
+- [x] **P2-5** 添加配置项（MA_SAFETY_ENABLED, MA_SAFETY_PII_ACTION 等）
 
 **2.3 测试（0.25 天）**
-- [ ] **P2-6** 编写 10+ 测试用例（敏感词、PII、边界）
-- [ ] **P2-7** 运行全量测试确保无回归
+- [x] **P2-6** 编写 32 测试用例（PII、敏感词、边界、集成）
+- [x] **P2-7** 运行全量测试（562 个通过）
 
-🔴 **暂停点**：测试全绿后，提交 commit
+✅ **暂停点通过**：2025-12-30 (commit: 0fada38)
 
 ---
 
@@ -208,7 +195,7 @@
 
 | 日期 | 目标 | 状态 |
 |------|------|------|
-| 2025-01-03 | Phase 1-2 完成（P0 优先级） | ⬜ |
+| 2025-12-30 | Phase 1-2 完成（P0 优先级） | ✅ 提前完成 |
 | 2025-01-10 | Phase 3 完成（Bi-temporal） | ⬜ |
 | 2025-01-15 | Phase 4 完成（ConflictDetector） | ⬜ |
 | 2025-01-20 | v3.0.0 发布 | ⬜ |
