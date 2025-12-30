@@ -26,6 +26,7 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from backend.config import get_config
 from backend.core.active_context import ActiveContext
+from backend.core.safety_filter import FilterAction, SafetyFilter, get_safety_filter
 
 # 导入现有的 models 和 services
 from backend.models.note import MemoryLayer, NoteCategory
@@ -99,7 +100,13 @@ class MemoryKernel:
     - 线程安全（通过 Qdrant Server 模式）
     """
 
-    def __init__(self, search_service, note_repo=None, budget_manager=None):
+    def __init__(
+        self,
+        search_service,
+        note_repo=None,
+        budget_manager=None,
+        safety_filter: Optional[SafetyFilter] = None,
+    ):
         """
         初始化记忆核心
 
@@ -107,10 +114,12 @@ class MemoryKernel:
             search_service: 搜索服务实例（SearchService）
             note_repo: Note 仓库（可选，用于元数据存储）
             budget_manager: 上下文预算管理器（可选，v3.0 新增）
+            safety_filter: 安全过滤器（可选，v3.0 新增）
         """
         self.search = search_service
         self.notes = note_repo
         self._budget_manager = budget_manager
+        self._safety_filter = safety_filter
 
     def search_memory(
         self,
@@ -297,6 +306,25 @@ class MemoryKernel:
         """
         # 规范化层级名称（支持 v1.x 旧术语）
         layer = normalize_layer(layer) or "verified_fact"
+
+        # 🛡️ 安全过滤（v3.0 新增）
+        if self._safety_filter:
+            filter_result = self._safety_filter.check(content)
+
+            # 如果内容被阻止，直接返回
+            if filter_result.is_blocked:
+                return {
+                    "id": None,
+                    "status": "blocked_by_safety_filter",
+                    "layer": layer,
+                    "blocked_reasons": filter_result.blocked_reasons,
+                    "pii_detected": filter_result.pii_detected,
+                    "sensitive_words_detected": filter_result.sensitive_words_detected,
+                }
+
+            # 如果内容被脱敏，使用脱敏后的内容
+            if filter_result.is_modified:
+                content = filter_result.filtered_content
 
         # 🔴 红线：宪法层保护
         if layer == MemoryLayer.IDENTITY_SCHEMA.value:
