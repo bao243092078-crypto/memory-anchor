@@ -26,10 +26,24 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from backend.config import get_config
 from backend.core.active_context import ActiveContext
+from backend.core.safety_filter import FilterAction, SafetyFilter, get_safety_filter
 
 # 导入现有的 models 和 services
 from backend.models.note import MemoryLayer, NoteCategory
 from backend.services.pending_memory import PendingMemoryService
+
+# v3.0: 冲突检测
+# 延迟导入避免循环依赖，在需要时导入
+_conflict_detector_class = None
+
+
+def _get_conflict_detector_class():
+    """延迟导入 ConflictDetector 类"""
+    global _conflict_detector_class
+    if _conflict_detector_class is None:
+        from backend.core.conflict_detector import ConflictDetector
+        _conflict_detector_class = ConflictDetector
+    return _conflict_detector_class
 
 
 class MemorySource(str, Enum):
@@ -99,16 +113,41 @@ class MemoryKernel:
     - 线程安全（通过 Qdrant Server 模式）
     """
 
-    def __init__(self, search_service, note_repo=None):
+    def __init__(
+        self,
+        search_service,
+        note_repo=None,
+        budget_manager=None,
+        safety_filter: Optional[SafetyFilter] = None,
+        conflict_detector=None,
+        enable_conflict_detection: bool = True,
+    ):
         """
         初始化记忆核心
 
         Args:
             search_service: 搜索服务实例（SearchService）
             note_repo: Note 仓库（可选，用于元数据存储）
+            budget_manager: 上下文预算管理器（可选，v3.0 新增）
+            safety_filter: 安全过滤器（可选，v3.0 新增）
+            conflict_detector: 冲突检测器（可选，v3.0 新增）
+            enable_conflict_detection: 是否启用冲突检测（默认 True）
         """
         self.search = search_service
         self.notes = note_repo
+        self._budget_manager = budget_manager
+        self._safety_filter = safety_filter
+        self._conflict_detector = conflict_detector
+        self._enable_conflict_detection = enable_conflict_detection
+
+        # 如果未提供冲突检测器但启用了检测，自动创建
+        if self._conflict_detector is None and self._enable_conflict_detection:
+            try:
+                ConflictDetector = _get_conflict_detector_class()
+                self._conflict_detector = ConflictDetector(search_service)
+            except Exception:
+                # 冲突检测是可选功能，初始化失败不应阻止使用
+                self._conflict_detector = None
 
     def search_memory(
         self,
@@ -119,6 +158,11 @@ class MemoryKernel:
         min_score: float = 0.3,
         include_constitution: bool = True,
         agent_id: Optional[str] = None,
+        # Bi-temporal 时间查询 (v3.0 新增)
+        as_of: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        include_expired: bool = False,
     ) -> List[Dict[str, Any]]:
         """
         语义搜索记忆
@@ -131,6 +175,10 @@ class MemoryKernel:
             min_score: 最小相关度分数
             include_constitution: 是否包含宪法层（始终显示）
             agent_id: Agent ID（用于会话层隔离）
+            as_of: Bi-temporal 时间点查询（ISO 8601 格式）
+            start_time: Bi-temporal 范围查询开始时间（ISO 8601 格式）
+            end_time: Bi-temporal 范围查询结束时间（ISO 8601 格式）
+            include_expired: 是否包含已过期记忆
 
         Returns:
             记忆结果列表，每项包含：
@@ -140,6 +188,8 @@ class MemoryKernel:
             - category: 分类
             - score: 相关度分数
             - is_constitution: 是否为宪法层
+            - valid_at: 生效时间（v3.0）
+            - expires_at: 失效时间
         """
         # 规范化层级名称（支持 v1.x 旧术语）
         layer = normalize_layer(layer)
@@ -156,12 +206,21 @@ class MemoryKernel:
         # 1) 搜索事实层/会话层
         search_results: list[dict] = []
 
+        # 构建时间查询参数（v3.0 Bi-temporal）
+        temporal_kwargs = {
+            "as_of": as_of,
+            "start_time": start_time,
+            "end_time": end_time,
+            "include_expired": include_expired,
+        }
+
         if layer == MemoryLayer.FACT.value:
             search_results = self.search.search(
                 query=query,
                 limit=limit,
                 layer=MemoryLayer.FACT.value,
                 category=category,
+                **temporal_kwargs,
             )
         elif layer == MemoryLayer.SESSION.value:
             search_results = self.search.search(
@@ -170,6 +229,7 @@ class MemoryKernel:
                 layer=MemoryLayer.SESSION.value,
                 category=category,
                 agent_id=agent_id,
+                **temporal_kwargs,
             )
         else:
             # 未指定层级：事实层共享 + 会话层按 agent_id 隔离
@@ -179,6 +239,7 @@ class MemoryKernel:
                     limit=limit,
                     layer=MemoryLayer.FACT.value,
                     category=category,
+                    **temporal_kwargs,
                 )
             )
             search_results.extend(
@@ -188,6 +249,7 @@ class MemoryKernel:
                     layer=MemoryLayer.SESSION.value,
                     category=category,
                     agent_id=agent_id,
+                    **temporal_kwargs,
                 )
             )
 
@@ -210,6 +272,8 @@ class MemoryKernel:
                 "source": r.get("source"),
                 "agent_id": r.get("agent_id"),
                 "created_at": r.get("created_at"),
+                # Bi-temporal 时间戳 (v3.0 新增)
+                "valid_at": r.get("valid_at"),
                 "expires_at": r.get("expires_at"),
                 "is_constitution": False,
                 # L2 情景记忆特有字段
@@ -226,6 +290,25 @@ class MemoryKernel:
         other_results = [r for r in results if not r["is_constitution"]]
         other_results.sort(key=lambda x: x["score"], reverse=True)
 
+        # 3. 应用预算截断（v3.0 新增）
+        if self._budget_manager:
+            # 宪法层预算
+            if constitution_results:
+                constitution_results, _ = self._budget_manager.truncate_to_fit(
+                    constitution_results,
+                    "identity_schema",
+                    preserve_first=len(constitution_results),  # 宪法层始终保留
+                )
+            # 其他层按 layer 分组截断
+            fact_results = [r for r in other_results if r.get("layer") == "verified_fact"]
+            event_results = [r for r in other_results if r.get("layer") == "event_log"]
+            if fact_results:
+                fact_results, _ = self._budget_manager.truncate_to_fit(fact_results, "verified_fact")
+            if event_results:
+                event_results, _ = self._budget_manager.truncate_to_fit(event_results, "event_log")
+            other_results = fact_results + event_results
+            other_results.sort(key=lambda x: x.get("score", 0), reverse=True)
+
         return constitution_results + other_results[:limit]
 
     def add_memory(
@@ -237,6 +320,8 @@ class MemoryKernel:
         confidence: float = 1.0,
         priority: Optional[int] = None,
         created_by: Optional[str] = None,
+        # Bi-temporal 时间戳 (v3.0 新增)
+        valid_at: Optional[datetime] = None,
         expires_at: Optional[datetime] = None,
         requires_approval: bool = False,
         agent_id: Optional[str] = None,
@@ -264,7 +349,8 @@ class MemoryKernel:
             confidence: 置信度（0-1）
             priority: 优先级（可选，0=最高）
             created_by: 创建者标识（可选，默认等于 source）
-            expires_at: 过期时间（可选）
+            valid_at: 生效时间（v3.0，默认=创建时间）
+            expires_at: 失效时间（可选）
             requires_approval: 是否需要审批（仅对非 AI 写入生效）
             agent_id: Agent ID（会话层需要）
             event_when: L2 情景记忆 - 事件时间（ISO 时间字符串）
@@ -276,6 +362,44 @@ class MemoryKernel:
         """
         # 规范化层级名称（支持 v1.x 旧术语）
         layer = normalize_layer(layer) or "verified_fact"
+
+        # 🛡️ 安全过滤（v3.0 新增）
+        if self._safety_filter:
+            filter_result = self._safety_filter.check(content)
+
+            # 如果内容被阻止，直接返回
+            if filter_result.is_blocked:
+                return {
+                    "id": None,
+                    "status": "blocked_by_safety_filter",
+                    "layer": layer,
+                    "blocked_reasons": filter_result.blocked_reasons,
+                    "pii_detected": filter_result.pii_detected,
+                    "sensitive_words_detected": filter_result.sensitive_words_detected,
+                }
+
+            # 如果内容被脱敏，使用脱敏后的内容
+            if filter_result.is_modified:
+                content = filter_result.filtered_content
+
+        # ⚔️ 冲突检测（v3.0 新增）
+        conflict_warning = None
+        if self._conflict_detector:
+            try:
+                conflict_result = self._conflict_detector.detect(
+                    content=content,
+                    layer=layer,
+                    project_id=get_config().project_id,
+                    confidence=confidence,
+                    created_by=created_by or source,
+                    valid_at=valid_at,
+                )
+                if conflict_result.has_conflict:
+                    # 不阻止写入，只是记录警告
+                    conflict_warning = conflict_result.to_dict()
+            except Exception:
+                # 冲突检测失败不应阻止写入
+                pass
 
         # 🔴 红线：宪法层保护
         if layer == MemoryLayer.IDENTITY_SCHEMA.value:
@@ -323,6 +447,8 @@ class MemoryKernel:
                 source=source,
                 agent_id=agent_id if layer == MemoryLayer.EVENT_LOG.value else None,
                 created_at=created_at,
+                # Bi-temporal 时间戳 (v3.0 新增)
+                valid_at=valid_at.isoformat() if valid_at else None,
                 expires_at=expires_at.isoformat() if expires_at else None,
                 priority=priority,
                 created_by=created_by_value,
@@ -350,19 +476,28 @@ class MemoryKernel:
                 created_by=created_by_value,
             )
 
-        return {
+        result = {
             "id": note_id,
             "status": status,
             "layer": layer,
             "confidence": confidence,
             "requires_approval": needs_approval,
             "created_at": created_at,
+            # Bi-temporal 时间戳 (v3.0 新增)
+            "valid_at": valid_at.isoformat() if valid_at else created_at,
+            "expires_at": expires_at.isoformat() if expires_at else None,
             "priority": priority,
             "created_by": created_by_value,
             # 可追溯性字段
             "session_id": session_id,
             "related_files": related_files,
         }
+
+        # 添加冲突警告（v3.0 新增）
+        if conflict_warning:
+            result["conflict_warning"] = conflict_warning
+
+        return result
 
     def get_constitution(self) -> List[Dict[str, Any]]:
         """
@@ -476,6 +611,22 @@ class MemoryKernel:
         """
         result = self.search.get_stats()
         return dict(result)
+
+    def get_budget_report(self) -> Optional[Dict[str, Any]]:
+        """
+        获取上下文预算使用报告（v3.0 新增）
+
+        Returns:
+            预算报告字典，如果未启用预算管理则返回 None
+        """
+        if self._budget_manager:
+            return self._budget_manager.get_report().to_dict()
+        return None
+
+    def reset_budget(self) -> None:
+        """重置预算计数器（用于新会话）"""
+        if self._budget_manager:
+            self._budget_manager.reset()
 
     # ===== L1: Active Context (工作记忆) =====
 

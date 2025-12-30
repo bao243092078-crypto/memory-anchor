@@ -87,7 +87,9 @@ class NoteCreate(BaseModel):
     layer: MemoryLayer = Field(default=MemoryLayer.VERIFIED_FACT, description="记忆层级")
     category: NoteCategory | None = Field(default=None, description="分类")
     priority: int = Field(default=100, ge=0, le=999, description="优先级，0=最高")
-    expires_at: datetime | None = Field(default=None, description="过期时间")
+    # Bi-temporal 时间戳 (v3.0 新增)
+    valid_at: datetime | None = Field(default=None, description="生效时间（默认=创建时间）")
+    expires_at: datetime | None = Field(default=None, description="失效时间")
 
     @field_validator("layer", mode="before")
     @classmethod
@@ -104,6 +106,8 @@ class NoteUpdate(BaseModel):
     content: str | None = Field(default=None, min_length=1, max_length=1000)
     category: NoteCategory | None = None
     priority: int | None = Field(default=None, ge=0, le=999)
+    # Bi-temporal 时间戳 (v3.0 新增)
+    valid_at: datetime | None = None
     expires_at: datetime | None = None
     is_active: bool | None = None
     # v2.1 可追溯性字段
@@ -140,7 +144,9 @@ class NoteResponse(BaseModel):
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     created_by: str = "caregiver"
     created_at: datetime = Field(default_factory=datetime.now)
-    expires_at: datetime | None = None
+    # Bi-temporal 时间戳 (v3.0 新增)
+    valid_at: datetime | None = Field(default=None, description="生效时间")
+    expires_at: datetime | None = Field(default=None, description="失效时间")
     last_verified: datetime | None = None
     is_active: bool = True
 

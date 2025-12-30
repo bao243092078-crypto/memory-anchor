@@ -172,6 +172,8 @@ class SearchService:
         agent_id: Optional[str] = None,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
+        # Bi-temporal 时间戳 (v3.0 新增)
+        valid_at: Optional[str] = None,
         expires_at: Optional[str] = None,
         priority: Optional[int] = None,
         created_by: Optional[str] = None,
@@ -226,6 +228,16 @@ class SearchService:
             payload["created_at"] = created_at
         if updated_at is not None:
             payload["updated_at"] = updated_at
+        # Bi-temporal: valid_at (v3.0 新增)
+        if valid_at is not None:
+            try:
+                dt = datetime.fromisoformat(valid_at.replace('Z', '+00:00'))
+                payload["valid_at"] = dt.timestamp()
+            except (ValueError, AttributeError):
+                payload["valid_at"] = valid_at
+        else:
+            # 默认 valid_at = created_at（立即生效）
+            payload["valid_at"] = None
         # Always add expires_at field (None = never expires)
         if expires_at is not None:
             # Convert ISO 8601 string to Unix timestamp for range queries
@@ -388,6 +400,11 @@ class SearchService:
         category: Optional[str] = None,
         only_active: bool = True,
         agent_id: Optional[str] = None,
+        # Bi-temporal 时间查询 (v3.0 新增)
+        as_of: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        include_expired: bool = False,
     ) -> List[dict]:
         """
         语义搜索便利贴。
@@ -399,10 +416,17 @@ class SearchService:
             category: 过滤类别
             only_active: 是否只返回激活的
             agent_id: 会话层隔离用 agent_id（仅当 layer=event_log 时生效）
+            as_of: Bi-temporal 时间点查询（ISO 8601 格式，返回该时刻有效的记忆）
+            start_time: Bi-temporal 范围查询开始时间（ISO 8601 格式）
+            end_time: Bi-temporal 范围查询结束时间（ISO 8601 格式）
+            include_expired: 是否包含已过期记忆（默认 False）
 
         Returns:
             搜索结果列表，包含 id, content, score, layer, category
         """
+        # 延迟导入避免循环依赖
+        from backend.core.temporal_query import parse_temporal_params
+
         query_vector = embed_text(query)
 
         # 转换 MemoryLayer 枚举为字符串（如果需要）
@@ -435,18 +459,15 @@ class SearchService:
                 FieldCondition(key="agent_id", match=MatchValue(value=agent_id))
             )
 
-        # TTL 过期过滤：过滤掉已过期的记忆
-        current_timestamp = datetime.now(timezone.utc).timestamp()
-        must_conditions.append(
-            Filter(
-                should=[
-                    # expires_at 为 None（永不过期）
-                    IsNullCondition(is_null=PayloadField(key="expires_at")),
-                    # 或 expires_at >= 当前时间（未过期）
-                    FieldCondition(key="expires_at", range=Range(gte=current_timestamp)),
-                ]
-            )
+        # Bi-temporal 时间过滤 (v3.0)
+        temporal_query = parse_temporal_params(
+            as_of=as_of,
+            start_time=start_time,
+            end_time=end_time,
+            include_expired=include_expired,
         )
+        temporal_conditions = temporal_query.to_qdrant_conditions()
+        must_conditions.extend(temporal_conditions)
 
         # Qdrant Filter type is complex; use type ignore for invariant list issue
         query_filter = Filter(must=must_conditions) if must_conditions else None  # type: ignore[arg-type]
@@ -477,6 +498,8 @@ class SearchService:
                 "agent_id": payload.get("agent_id"),
                 "created_at": payload.get("created_at"),
                 "updated_at": payload.get("updated_at"),
+                # Bi-temporal 时间戳 (v3.0 新增)
+                "valid_at": payload.get("valid_at"),
                 "expires_at": payload.get("expires_at"),
                 "last_verified": payload.get("last_verified"),
                 # L2 情景记忆特有字段
