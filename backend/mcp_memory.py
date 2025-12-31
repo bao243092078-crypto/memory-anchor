@@ -70,43 +70,7 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="search_memory",
-            description="""搜索患者记忆。
-
-⚠️ **强制调用场景**：在回答任何与以下内容相关的问题之前，必须先调用此工具：
-
-**患者相关（照护场景）**：
-- 患者身份、家人、联系方式
-- 历史事件、去过的地方、见过的人
-- 用药、医疗、健康相关
-- 日常习惯、偏好、禁忌
-
-**项目开发相关（开发场景）**：
-- 项目历史、之前做过什么
-- 设计决策、架构选型的原因
-- Bug 修复记录、踩过的坑
-- 上下文、背景信息
-- "上次我们讨论的..."、"之前决定的..."
-
-**核心规则**：如果当前任务不是"完全新东西"，就必须先调用此工具。
-不确定时，宁可多查一次，也不要漏掉重要上下文。
-
-**输入**：用户问题的简短概述（自然语言）
-**输出**：若干条相关记忆（宪法/事实/会话层），供你引用回答问题
-
-三层记忆说明：
-- 🔴 宪法层：核心身份（始终返回，不可遗漏）
-- 🔵 事实层：长期记忆（经过验证的事实）
-- 🟢 会话层：短期对话记忆（24h内）
-
-示例查询：
-- "女儿电话" → 返回联系人信息
-- "search_memory Bug" → 返回相关 Bug 修复记录
-- "Qdrant 决策" → 返回技术选型原因
-- "上次讨论的架构" → 返回设计决策
-
-Bi-temporal 查询（v3.0）：
-- 使用 as_of 查询某时刻有效的记忆
-- 使用 start_time/end_time 查询时间范围内的记忆""",
+            description="""搜索记忆。涉及历史/决策/Bug/上下文时必须先调用。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -165,18 +129,7 @@ Bi-temporal 查询（v3.0）：
         ),
         Tool(
             name="add_memory",
-            description="""添加记忆到系统。
-
-注意：
-- 宪法层不允许通过此工具添加（需专用流程）
-- AI提取的记忆需提供置信度，会按规则处理：
-  - ≥0.9: 直接存入
-  - 0.7-0.9: 待确认
-  - <0.7: 拒绝
-
-示例：
-- 添加患者自述："患者说今天见了老朋友张三"
-- 记录观察："患者表现出对花园的喜爱" """,
+            description="""添加记忆。禁止写入identity_schema层。confidence≥0.9直接存，0.7-0.9待确认，<0.7拒绝。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -215,15 +168,7 @@ Bi-temporal 查询（v3.0）：
         ),
         Tool(
             name="get_constitution",
-            description="""获取患者的全部宪法层记忆。
-
-宪法层包含患者的核心身份信息：
-- 姓名、年龄、住址
-- 关键家庭成员和联系方式
-- 必要的医疗信息（用药、过敏）
-
-这些信息始终全量返回，不依赖检索。
-每次对话开始时应调用此工具加载上下文。""",
+            description="""获取核心身份(L0层)。会话开始时调用。""",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -231,27 +176,7 @@ Bi-temporal 查询（v3.0）：
         ),
         Tool(
             name="delete_memory",
-            description="""删除指定的记忆。
-
-🔴 **高风险操作** - 需要用户明确确认。
-
-调用此工具前，请确保：
-1. 用户在消息中包含确认短语：
-   - "确认删除" / "我确认"
-   - "confirm delete" / "I confirm"
-2. 已向用户说明将要删除的内容
-
-如果没有确认短语，操作将被拦截。
-
-**使用场景**：
-- 清理错误添加的记忆
-- 删除过时的信息
-- 患者/照护者要求删除
-
-**注意**：
-- 不允许删除宪法层记忆（需使用 propose_constitution_change）
-- 删除操作不可逆
-- 建议先 search_memory 确认要删除的内容""",
+            description="""删除记忆(高风险)。confirmation须含'确认删除'。禁止删除L0层。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -269,22 +194,7 @@ Bi-temporal 查询（v3.0）：
         ),
         Tool(
             name="propose_constitution_change",
-            description="""提议修改宪法层记忆（需三次审批）。
-
-⚠️ **强制规则**：宪法层的任何修改，必须通过此工具提议，不得直接编辑。
-
-三次审批流程：
-1. 调用此工具 → 创建 pending 状态的变更提议
-2. 照护者审批 3 次 → approvals_count 达到 3
-3. 自动应用变更 → 写入宪法层
-
-**何时使用**：
-- 修改患者核心身份（姓名、住址）
-- 更新联系人信息
-- 修改医疗信息（用药、过敏）
-- 删除错误的宪法层条目
-
-**重要**：仅用于提议，不会立即生效。需要照护者多次确认。""",
+            description="""提议修改L0层(需三次审批)。仅创建提议，不立即生效。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -321,21 +231,7 @@ Bi-temporal 查询（v3.0）：
         ),
         Tool(
             name="sync_to_files",
-            description="""将 Qdrant 中的记忆同步到 .memos/ 文件（人类可读备份）。
-
-**用途**：
-- 将 Qdrant 中的记忆导出为 Markdown 文件
-- 便于人类阅读和版本控制
-- 作为 MCP 离线时的回退数据源
-
-**同步目标**：
-- .memos/fact.md - 事实层记忆
-- .memos/session.md - 会话层记忆
-- .memos/index.md - 记忆索引
-
-**触发时机**：
-- 会话结束时自动调用
-- 用户说"同步记忆"时手动调用""",
+            description="""导出记忆到.memos/目录(Markdown备份)。会话结束时调用。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -359,29 +255,10 @@ Bi-temporal 查询（v3.0）：
                 },
             },
         ),
-        # ===== L2 Event Log 工具（五层模型新增）=====
+        # ===== L2 Event Log 工具 =====
         Tool(
             name="log_event",
-            description="""记录事件到情景记忆（L2 event_log）。
-
-情景记忆的核心特征（来自认知科学）：
-- **when**：事件发生时间
-- **where**：事件发生地点
-- **who**：涉及的人物
-
-**用途**：
-- 记录患者的日常活动
-- 记录项目开发中的重要事件
-- 记录 Bug 修复、功能完成等里程碑
-
-**与 add_memory 的区别**：
-- log_event 专门用于带时空标记的事件（L2）
-- add_memory 用于通用记忆（L3 verified_fact）
-
-**示例**：
-- "患者今天下午在花园散步，遇到了老朋友张三"
-- "修复了 search_memory 空查询的 Bug"
-- "完成了五层记忆模型的 MCP 工具添加" """,
+            description="""记录事件到L2层(带when/where/who时空标记)。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -429,22 +306,7 @@ Bi-temporal 查询（v3.0）：
         ),
         Tool(
             name="search_events",
-            description="""搜索事件日志（L2 event_log）。
-
-支持多维度过滤：
-- **时间范围**：start_time / end_time
-- **地点**：where
-- **人物**：who
-- **语义搜索**：query
-
-**与 search_memory 的区别**：
-- search_events 专门搜索 L2 event_log，支持时间范围
-- search_memory 搜索所有层级的记忆
-
-**示例查询**：
-- 搜索上周的所有事件
-- 搜索发生在"花园"的事件
-- 搜索涉及"张三"的事件""",
+            description="""搜索L2事件日志。支持时间/地点/人物过滤。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -482,23 +344,7 @@ Bi-temporal 查询（v3.0）：
         ),
         Tool(
             name="promote_to_fact",
-            description="""将事件提升为验证事实（L2 → L3）。
-
-当一个事件经过验证，可以从情景记忆（L2 event_log）提升为语义记忆（L3 verified_fact）。
-
-**何时使用**：
-- 事件被照护者/用户确认为真实
-- 临时发现需要转为长期记忆
-- 重复出现的事件需要固化
-
-**提升后的变化**：
-- 从 event_log 层移动到 verified_fact 层
-- 不再受 TTL 限制（永久保留）
-- 标记 verified_by 和 promoted_at
-
-**示例**：
-- 将"患者今天认出了女儿"提升为事实
-- 将"发现 Qdrant 不支持并发"提升为长期记录""",
+            description="""将事件提升为事实(L2→L3)。提升后永久保留。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -519,28 +365,10 @@ Bi-temporal 查询（v3.0）：
                 "required": ["event_id"],
             },
         ),
-        # ===== Checklist 工具（清单革命 - 与 Plan skill 协同）=====
+        # ===== Checklist 工具 =====
         Tool(
             name="get_checklist_briefing",
-            description="""获取清单简报（会话开始时调用）。
-
-**核心理念**（来自《清单革命》+ 三方 AI 头脑风暴）：
-- Checklist = 战略层（跨会话持久）
-- Plan skill = 战术层（单次任务）
-- 通过 (ma:xxx) ID 机制连接两者
-
-**何时调用**：
-- SessionStart 时获取待办清单
-- 上下文压缩后恢复工作状态
-- 用户说"我在做什么来着？"
-
-**返回格式**：
-Markdown 格式的清单简报，按优先级分组，包含 (ma:xxx) 引用 ID。
-
-**与 Plan skill 的关系**：
-- 先调用 get_checklist_briefing 获取战略约束
-- 再使用 Plan skill 生成当前任务的具体步骤
-- 完成后调用 sync_plan_to_checklist 同步状态""",
+            description="""获取清单简报。会话开始时调用。返回(ma:xxx)引用ID。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -571,27 +399,7 @@ Markdown 格式的清单简报，按优先级分组，包含 (ma:xxx) 引用 ID�
         ),
         Tool(
             name="sync_plan_to_checklist",
-            description="""从 Plan 同步清单状态（SessionEnd 时调用）。
-
-**解析 plan.md 内容**：
-1. 找到 [x] 的项目，如果有 (ma:xxx) 引用则标记对应清单项完成
-2. 找到 @persist 标签的项目，创建新的清单项
-3. 返回同步结果
-
-**何时调用**：
-- SessionEnd 时同步 Plan 执行结果
-- 用户说"存进度"、"同步清单"
-
-**示例 plan.md 内容**：
-```
-- [x] 修复 QDRANT_URL 问题 (ma:abc12345)
-- [ ] 实现 ChecklistService @persist
-- [x] 添加 MCP 工具 (ma:def67890)
-```
-
-**同步结果**：
-- (ma:abc12345) 和 (ma:def67890) 标记为完成
-- "实现 ChecklistService" 创建为新清单项""",
+            description="""同步Plan到清单。解析[x]和@persist标签。会话结束时调用。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -613,24 +421,7 @@ Markdown 格式的清单简报，按优先级分组，包含 (ma:xxx) 引用 ID�
         ),
         Tool(
             name="create_checklist_item",
-            description="""创建清单项。
-
-用于手动创建跨会话持久的清单项。
-
-**与 add_memory 的区别**：
-- add_memory: 添加记忆（被动存储）
-- create_checklist_item: 创建待办（主动跟踪）
-
-**优先级**：
-- 1 (critical): 🔴 紧急
-- 2 (high): 🟠 高优
-- 3 (normal): 🟡 普通
-- 4 (low): 🟢 低优
-- 5 (backlog): ⚪ 待定
-
-**示例**：
-- 创建一个高优先级的 Bug 修复任务
-- 创建一个普通的功能开发任务""",
+            description="""创建清单项。priority:1紧急/2高/3普通/4低/5待定。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -670,35 +461,10 @@ Markdown 格式的清单简报，按优先级分组，包含 (ma:xxx) 引用 ID�
                 "required": ["project_id", "content"],
             },
         ),
-        # ===== L4 Operational Knowledge 工具（五层模型补全）=====
+        # ===== L4 Operational Knowledge 工具 =====
         Tool(
             name="search_operations",
-            description="""搜索 L4 操作性知识（SOP/Workflow）。
-
-⚠️ **强制调用场景**：遇到以下情况时，必须先调用此工具查找 SOP：
-
-**基础设施问题**：
-- Qdrant 未运行、502 Bad Gateway、QDRANT_URL 错误
-- MCP 连接失败、记忆系统故障
-- 需要启动/重启服务
-
-**开发流程问题**：
-- 会话开始时的标准流程
-- 记忆同步（pending → Qdrant）
-- 上下文恢复
-
-**核心原则**：
-- L4 操作性知识 = AI 的"肌肉记忆"
-- 遇到已有 SOP 的问题，应该按 SOP 执行，而不是重新思考
-- 这符合北极星原则："不依赖 AI 自觉（要有强制机制）"
-
-**输入**：问题关键词（如 "qdrant"、"pending"、"会话开始"）
-**输出**：匹配的 SOP 文件路径和简要说明
-
-**示例查询**：
-- "qdrant" → 返回 sop-qdrant-startup.md
-- "pending" → 返回 sop-memory-sync.md
-- "会话开始" → 返回 workflow-session-start.md""",
+            description="""搜索SOP/Workflow(L4层)。遇到基础设施/流程问题时先调用。""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -715,35 +481,10 @@ Markdown 格式的清单简报，按优先级分组，包含 (ma:xxx) 引用 ID�
                 "required": ["query"],
             },
         ),
-        # ===== Memory Refiner 工具（基于 CoDA 上下文解耦）=====
+        # ===== Memory Refiner 工具 =====
         Tool(
             name="refine_memory",
-            description="""使用 LLM 精炼/压缩记忆（基于 CoDA 上下文解耦思想）。
-
-**核心思想**（来自 CoDA 论文）：
-- 在独立上下文中处理原始记忆，避免污染主 Agent 的上下文
-- 使用 Observation Masking 策略：保留最近 N 条完整内容，压缩更早的
-- 通过 LLM 提取关键决策、Bug 修复、架构选择等
-
-**用途**：
-- 当搜索返回大量记忆时，精炼为简洁摘要
-- 节省上下文 token，保留关键信息
-- 类似 CoDA Executor 的独立处理模式
-
-**工作流程**：
-1. 接收原始记忆列表
-2. 应用 Observation Masking（最近 3 条完整，更早的压缩）
-3. 调用 LLM 生成精炼摘要
-4. 返回压缩后的结果（含压缩比）
-
-**注意**：
-- 需要配置 LLM API Key（ANTHROPIC_API_KEY 或 OPENAI_API_KEY）
-- 无 API Key 时使用本地回退（简单截断）
-- 可通过 LLM_ENABLED=false 禁用此功能
-
-**示例**：
-- 搜索返回 10 条记忆 → 精炼为 500 token 摘要
-- 精炼焦点："key_decisions" / "bugs" / "all\"""",
+            description="""LLM精炼/压缩记忆。需配置API Key。记忆过多时用于节省token。""",
             inputSchema={
                 "type": "object",
                 "properties": {
